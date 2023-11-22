@@ -1,0 +1,44 @@
+LINEBOT串接
+描述
+這是一個用於LINE平台的Bot，旨在利用先進的資料分析和機器學習技術，為用戶提供個性化的餐點推薦和價格預測服務。它結合用戶的位置、偏好以及圖像辨識技術，來提供快速、準確的餐點選擇建議。
+
+功能
+餐點查詢：用戶可以根據類型、預算和特色來查詢餐點。此功能還會考慮用戶的當前位置，從而推薦附近的餐廳。
+價格預測：用戶可以上傳餐點的圖片，系統將利用訓練好的機器學習模型來預測該餐點的大概價格範圍。
+隨機餐點：當用戶希望嘗試新的餐點時，系統將基於用戶的位置提供隨機餐點的選擇。
+技術棧
+後端框架：Python, Flask
+數據庫：MySQL
+機器學習：TensorFlow (用於圖像識別)
+APIs：LINE Messaging API, Google Maps API (用於位置服務)
+安裝和使用
+前提條件
+Python 3.6+
+LINE Messaging API的存取權杖
+Google Maps API密鑰
+安裝步驟
+克隆存儲庫：
+bash
+Copy code
+git clone [存儲庫URL]
+安裝依賴：
+Copy code
+pip install -r requirements.txt
+設置環境變量：
+arduino
+Copy code
+export LINE_CHANNEL_ACCESS_TOKEN='你的LINE存取權杖'
+export GOOGLE_MAPS_API_KEY='你的Google Maps API密鑰'
+使用方法
+運行Flask應用：
+
+Copy code
+python web_server.py
+貢獻
+我們歡迎所有形式的貢獻，包括功能改進、錯誤修復或文檔更新。請先開一個issue討論你想要的改變。
+
+聯絡方式
+如果有任何問題或建議，請通過[你的聯絡方式]與我們聯繫。
+
+授權
+本專案採用MIT授權條款。
