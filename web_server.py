@@ -8,23 +8,27 @@ from flask import Flask, abort, request
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
+from linebot.models import ImageCarouselTemplate, ImageCarouselColumn
+
+ngrok_url = "https://3623-114-24-65-242.ngrok-free.app"
+image_url = f"{ngrok_url}/C:\Users\Sariel\Documents\GitHub\bdse3202_linebot\image/what_food.jpg"
 
 user_choices = {}
 app = Flask(__name__)
 
 # LINE 聊天機器人的基本資料
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read("config.ini")
 
-line_bot_api = LineBotApi(config.get('line-bot', 'channel_access_token'))
-handler = WebhookHandler(config.get('line-bot', 'channel_secret'))
+line_bot_api = LineBotApi(config.get("line-bot", "channel_access_token"))
+handler = WebhookHandler(config.get("line-bot", "channel_secret"))
 
 # 接收 LINE 的資訊
 
 
-@app.route("/food", methods=['POST'])
+@app.route("/food", methods=["POST"])
 def callback():
-    signature = request.headers['X-Line-Signature']
+    signature = request.headers["X-Line-Signature"]
 
     body = request.get_data(as_text=True)
     app.logger.info("Request body: " + body)
@@ -36,7 +40,34 @@ def callback():
     except InvalidSignatureError:
         abort(400)
 
-    return 'OK'
+    return "OK"
+
+
+def create_image_carousel_template():
+    # 創建 ImageCarouselTemplate
+    image_carousel_template = ImageCarouselTemplate(
+        columns=[
+            ImageCarouselColumn(
+                image_url=image_url,
+                action=MessageAction(label="中式", text="taiwanese"),
+            ),
+            ImageCarouselColumn(
+                image_url=image_url,
+                action=MessageAction(label="日式", text="japanese"),
+            ),
+            ImageCarouselColumn(
+                image_url=image_url,
+                action=MessageAction(label="不指定", text="None"),
+            ),
+        ]
+    )
+
+    # 創建 TemplateSendMessage
+    template_message = TemplateSendMessage(
+        alt_text="餐點選擇", template=image_carousel_template
+    )
+
+    return template_message
 
 
 @handler.add(MessageEvent, message=TextMessage)
@@ -44,40 +75,55 @@ def handle_message(event):
     user_id = event.source.user_id
     user_input = event.message.text
 
-    if user_input == '餐點查詢':
+    if user_input == "餐點查詢":
         user_choices[user_id] = []  # 每次查詢時重置該使用者的選擇
         buttons_template = ButtonsTemplate(
-            title='餐點選擇', text='請選擇餐點類別', actions=[
-                MessageAction(label='中式', text='taiwanese'),
-                MessageAction(label='日式', text='japanese'),
-                MessageAction(label='不指定', text='None')
-            ])
+            title="餐點選擇",
+            text="請選擇餐點類別",
+            actions=[
+                MessageAction(label="中式", text="taiwanese"),
+                MessageAction(label="日式", text="japanese"),
+                MessageAction(label="不指定", text="None"),
+            ],
+        )
         template_message = TemplateSendMessage(
-            alt_text='餐點選擇', template=buttons_template)
-        line_bot_api.reply_message(event.reply_token, template_message)
-    elif user_input in ['taiwanese', 'japanese', 'None']:
+            alt_text="餐點選擇", template=buttons_template
+        )
+        # 使用函式取得圖片消息
+        image_message = create_image_carousel_template()
+
+        line_bot_api.reply_message(event.reply_token, [template_message, image_message])
+    elif user_input in ["taiwanese", "japanese", "None"]:
         user_choices[user_id].append(user_input)
         buttons_template_price = ButtonsTemplate(
-            title='價格選擇', text='請選擇價格範圍', actions=[
-                MessageAction(label='100元', text='100'),
-                MessageAction(label='200元', text='200'),
-                MessageAction(label='不指定', text='None')
-            ])
+            title="價格選擇",
+            text="請選擇價格範圍",
+            actions=[
+                MessageAction(label="100元", text="100"),
+                MessageAction(label="200元", text="200"),
+                MessageAction(label="不指定", text="None"),
+            ],
+        )
         template_message_price = TemplateSendMessage(
-            alt_text='價格選擇', template=buttons_template_price)
+            alt_text="價格選擇", template=buttons_template_price
+        )
         line_bot_api.reply_message(event.reply_token, template_message_price)
-    elif user_input in ['100', '200', 'None']:
+    elif user_input in ["100", "200", "None"]:
         user_choices[user_id].append(user_input)
         buttons_template_feature = ButtonsTemplate(
-            title='特色選擇', text='請選擇特色', actions=[
-                MessageAction(label='CP高', text='high_cp'),
-                MessageAction(label='乾淨', text='clean'),
-                MessageAction(label='不選擇', text='None')
-            ])
+            title="特色選擇",
+            text="請選擇特色",
+            actions=[
+                MessageAction(label="CP高", text="high_cp"),
+                MessageAction(label="乾淨", text="clean"),
+                MessageAction(label="不選擇", text="None"),
+            ],
+        )
         template_message_feature = TemplateSendMessage(
-            alt_text='特色選擇', template=buttons_template_feature)
+            alt_text="特色選擇", template=buttons_template_feature
+        )
         line_bot_api.reply_message(event.reply_token, template_message_feature)
-    elif user_input in ['high_cp', 'clean', 'None']:
+    elif user_input in ["high_cp", "clean", "None"]:
         user_choices[user_id].append(user_input)
 
         # 在這裡處理使用者的選擇
@@ -95,8 +141,7 @@ def handle_message(event):
         # 處理完畢後，清空使用者的選項
         user_choices[user_id] = []
         line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=reply_message)
+            event.reply_token, TextSendMessage(text=reply_message)
         )
 
 
