@@ -91,8 +91,8 @@ def handle_message(event):
         )
         # 使用函式取得圖片消息
         image_message = create_image_carousel_template()
-
         line_bot_api.reply_message(event.reply_token, [template_message, image_message])
+
     elif user_input in ["taiwanese", "japanese", "None"]:
         user_choices[user_id].append(user_input)
         buttons_template_price = ButtonsTemplate(
@@ -108,6 +108,7 @@ def handle_message(event):
             alt_text="價格選擇", template=buttons_template_price
         )
         line_bot_api.reply_message(event.reply_token, template_message_price)
+
     elif user_input in ["100", "200", "None"]:
         user_choices[user_id].append(user_input)
         buttons_template_feature = ButtonsTemplate(
@@ -123,6 +124,7 @@ def handle_message(event):
             alt_text="特色選擇", template=buttons_template_feature
         )
         line_bot_api.reply_message(event.reply_token, template_message_feature)
+
     elif user_input in ["high_cp", "clean", "None"]:
         user_choices[user_id].append(user_input)
 
@@ -142,6 +144,20 @@ def handle_message(event):
         user_choices[user_id] = []
         line_bot_api.reply_message(
             event.reply_token, TextSendMessage(text=reply_message)
+        )
+
+    elif user_input == "help":
+        # 使用者輸入 "help" 的情境
+        help_message = "您可以輸入以下指令：\n餐點查詢"
+        line_bot_api.reply_message(
+            event.reply_token, TextSendMessage(text=help_message)
+        )
+
+    else:
+        # 如果使用者輸入未知指令，回覆相應訊息
+        unknown_message = "未知指令，請輸入 'help' 獲取幫助。"
+        line_bot_api.reply_message(
+            event.reply_token, TextSendMessage(text=unknown_message)
         )
 
 
