@@ -8,7 +8,7 @@ from flask import Flask, abort, request
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
-from linebot.models import ImageCarouselTemplate, ImageCarouselColumn
+from linebot.models import ImageCarouselColumn, ImageCarouselTemplate
 
 github_raw_url = "https://raw.githubusercontent.com/lkzaxx/bdse3202_linebot/main/image/what_food.jpg?token=GHSAT0AAAAAACKVFOPYRHJ67X3AL3EHNUUYZK635EA"
 image_url = github_raw_url
