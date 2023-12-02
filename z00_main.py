@@ -1,6 +1,6 @@
 # main.py
 
-from web_server import app
+from z10_web_server import app
 
 if __name__ == "__main__":
     app.run(debug=True)

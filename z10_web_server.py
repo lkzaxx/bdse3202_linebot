@@ -10,8 +10,11 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
 from linebot.models import ImageCarouselColumn, ImageCarouselTemplate
 
-github_raw_url = "https://i.imgur.com/oWx7pro.jpg"
-image_url = github_raw_url
+
+chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
+japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
+western_cuisine_url = "blob:https://imgur.com/c7989078-43e7-40cd-8969-d9e8640e56ee"
+what_food_url = "https://i.imgur.com/X0dzHbS.jpg"
 
 user_choices = {}
 app = Flask(__name__)
@@ -48,15 +51,15 @@ def create_image_carousel_template():
     image_carousel_template = ImageCarouselTemplate(
         columns=[
             ImageCarouselColumn(
-                image_url=image_url,
+                image_url=chinese_food_image_url,
                 action=MessageAction(label="中式", text="taiwanese"),
             ),
             ImageCarouselColumn(
-                image_url=image_url,
+                image_url=japan_food_image_url,
                 action=MessageAction(label="日式", text="japanese"),
             ),
             ImageCarouselColumn(
-                image_url=image_url,
+                image_url=what_food_url,
                 action=MessageAction(label="不指定", text="None"),
             ),
         ]
