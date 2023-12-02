@@ -10,7 +10,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
 from linebot.models import ImageCarouselColumn, ImageCarouselTemplate
 
-github_raw_url = "https://raw.githubusercontent.com/lkzaxx/bdse3202_linebot/main/image/what_food.jpg?token=GHSAT0AAAAAACKVFOPYRHJ67X3AL3EHNUUYZK635EA"
+github_raw_url = "https://i.imgur.com/oWx7pro.jpg"
 image_url = github_raw_url
 
 user_choices = {}
