@@ -8,10 +8,14 @@ from flask import Flask, abort, request
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
-from linebot.models import ImageCarouselTemplate, ImageCarouselColumn
+from linebot.models import ImageCarouselColumn, ImageCarouselTemplate
+from z30_user_location import UserCoordinate
 
-github_raw_url = "https://raw.githubusercontent.com/lkzaxx/bdse3202_linebot/main/image/what_food.jpg?token=GHSAT0AAAAAACKVFOPYRHJ67X3AL3EHNUUYZK635EA"
-image_url = github_raw_url
+
+chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
+japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
+western_cuisine_url = "blob:https://imgur.com/c7989078-43e7-40cd-8969-d9e8640e56ee"
+what_food_url = "https://i.imgur.com/X0dzHbS.jpg"
 
 user_choices = {}
 app = Flask(__name__)
@@ -48,15 +52,15 @@ def create_image_carousel_template():
     image_carousel_template = ImageCarouselTemplate(
         columns=[
             ImageCarouselColumn(
-                image_url=image_url,
+                image_url=chinese_food_image_url,
                 action=MessageAction(label="中式", text="taiwanese"),
             ),
             ImageCarouselColumn(
-                image_url=image_url,
+                image_url=japan_food_image_url,
                 action=MessageAction(label="日式", text="japanese"),
             ),
             ImageCarouselColumn(
-                image_url=image_url,
+                image_url=what_food_url,
                 action=MessageAction(label="不指定", text="None"),
             ),
         ]
@@ -74,10 +78,12 @@ def create_image_carousel_template():
 def handle_message(event):
     user_id = event.source.user_id
     user_input = event.message.text
-
+    user_coordinate = UserCoordinate()
+    print(user_coordinate)
     if user_input == "餐點查詢":
         user_choices[user_id] = []  # 每次查詢時重置該使用者的選擇
         buttons_template = ButtonsTemplate(
+            thumbnail_image_url="https://i.imgur.com/X0dzHbS.jpg",
             title="餐點選擇",
             text="請選擇餐點類別",
             actions=[
@@ -90,9 +96,9 @@ def handle_message(event):
             alt_text="餐點選擇", template=buttons_template
         )
         # 使用函式取得圖片消息
-        image_message = create_image_carousel_template()
-        line_bot_api.reply_message(event.reply_token, [template_message, image_message])
+        # image_message = create_image_carousel_template()
 
+        line_bot_api.reply_message(event.reply_token, template_message)
     elif user_input in ["taiwanese", "japanese", "None"]:
         user_choices[user_id].append(user_input)
         buttons_template_price = ButtonsTemplate(
@@ -108,7 +114,6 @@ def handle_message(event):
             alt_text="價格選擇", template=buttons_template_price
         )
         line_bot_api.reply_message(event.reply_token, template_message_price)
-
     elif user_input in ["100", "200", "None"]:
         user_choices[user_id].append(user_input)
         buttons_template_feature = ButtonsTemplate(
@@ -124,7 +129,6 @@ def handle_message(event):
             alt_text="特色選擇", template=buttons_template_feature
         )
         line_bot_api.reply_message(event.reply_token, template_message_feature)
-
     elif user_input in ["high_cp", "clean", "None"]:
         user_choices[user_id].append(user_input)
 
@@ -136,7 +140,7 @@ def handle_message(event):
             # 在這裡添加基於 category、price 和 feature 的邏輯處理
             # 例如：回應相關的餐點資訊或執行查詢等操作
 
-            reply_message = f"您選擇了類別：{category}，價格：{price}，特色：{feature}。正在處理您的請求..."
+            reply_message = f"您選擇了類別：{category}，價格：{price}，特色：{feature}，座標:{user_coordinate}。正在處理您的請求..."
         else:
             reply_message = "發生錯誤：無法識別的選擇序列。"
 
@@ -144,20 +148,6 @@ def handle_message(event):
         user_choices[user_id] = []
         line_bot_api.reply_message(
             event.reply_token, TextSendMessage(text=reply_message)
-        )
-
-    elif user_input == "help":
-        # 使用者輸入 "help" 的情境
-        help_message = "您可以輸入以下指令：\n餐點查詢"
-        line_bot_api.reply_message(
-            event.reply_token, TextSendMessage(text=help_message)
-        )
-
-    else:
-        # 如果使用者輸入未知指令，回覆相應訊息
-        unknown_message = "未知指令，請輸入 'help' 獲取幫助。"
-        line_bot_api.reply_message(
-            event.reply_token, TextSendMessage(text=unknown_message)
         )
 
 

@@ -1,9 +1,22 @@
-from Z21_azure_sql_commit_query import commit_query
+from Z21_sql_query import CommitQuery
+
+"""
+NULL
+American
+Brunch
+Desserts
+Drinks
+International
+J&K
+TW
+Vegetarian
+"""
+
 
 if __name__ == "__main__":
     # 在這裡可以放入您想要執行的 SQL 查詢
     query = "SELECT TOP 1 * FROM google_commit"
-    result = commit_query(query)
+    result = CommitQuery(query)
 
     # 印出結果
     for row in result:

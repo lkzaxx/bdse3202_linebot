@@ -52,16 +52,16 @@ def create_image_carousel_template():
     image_carousel_template = ImageCarouselTemplate(
         columns=[
             ImageCarouselColumn(
-                image_url=chinese_food_image_url,
-                action=MessageAction(label="中式", text="taiwanese"),
+                MessageAction(label="台式", text="TW"),
+                MessageAction(label="日韓", text="J&K"),
+                MessageAction(label="早午餐", text="Brunch"),
+                MessageAction(label="美式、西式", text="American、International"),
             ),
             ImageCarouselColumn(
-                image_url=japan_food_image_url,
-                action=MessageAction(label="日式", text="japanese"),
-            ),
-            ImageCarouselColumn(
-                image_url=what_food_url,
-                action=MessageAction(label="不指定", text="None"),
+                MessageAction(label="點心", text="Desserts"),
+                MessageAction(label="素食", text="Vegetarian"),
+                MessageAction(label="飲料", text="Drinks"),
+                MessageAction(label="不指定", text="None"),
             ),
         ]
     )
@@ -81,23 +81,76 @@ def handle_message(event):
     user_coordinate = UserCoordinate()
     print(user_coordinate)
     if user_input == "餐點查詢":
-        user_choices[user_id] = []  # 每次查詢時重置該使用者的選擇
+        # --------------------------------------------------------------------------------------------#
+        template = CarouselTemplate(
+            columns=[
+                CarouselColumn(
+                    thumbnail_image_url="https://steam.oxxostudio.tw/download/python/line-template-message-demo.jpg",
+                    title="選單 1",
+                    text="說明文字 1",
+                    actions=[
+                        PostbackAction(label="postback", data="data1"),
+                        MessageAction(label="hello", text="hello"),
+                        URIAction(label="oxxo.studio", uri="http://oxxo.studio"),
+                    ],
+                ),
+                CarouselColumn(
+                    thumbnail_image_url="https://steam.oxxostudio.tw/download/python/line-template-message-demo2.jpg",
+                    title="選單 2",
+                    text="說明文字 2",
+                    actions=[
+                        PostbackAction(label="postback", data="data1"),
+                        MessageAction(label="hi", text="hi"),
+                        URIAction(
+                            label="STEAM 教育學習網", uri="https://steam.oxxostudio.tw"
+                        ),
+                    ],
+                ),
+            ]
+        )
+
+        # --------------------------------------------------------------------------------------------#
+        # user_choices[user_id] = []  # 每次查詢時重置該使用者的選擇
         buttons_template = ButtonsTemplate(
+            thumbnail_image_url=what_food_url,
             title="餐點選擇",
             text="請選擇餐點類別",
             actions=[
-                MessageAction(label="中式", text="taiwanese"),
-                MessageAction(label="日式", text="japanese"),
-                MessageAction(label="不指定", text="None"),
+                MessageAction(label="台式", text="TW"),
+                MessageAction(label="日韓", text="J&K"),
+                MessageAction(label="早午餐", text="Brunch"),
+                MessageAction(label="美式、西式", text="American、International"),
             ],
         )
-        template_message = TemplateSendMessage(
+        template_message_1 = TemplateSendMessage(
             alt_text="餐點選擇", template=buttons_template
         )
         # 使用函式取得圖片消息
-        image_message = create_image_carousel_template()
+        # image_message = create_image_carousel_template()
 
-        line_bot_api.reply_message(event.reply_token, [template_message, image_message])
+        # --------------------------------------------------------------------------------------------#
+        buttons_template = ButtonsTemplate(
+            thumbnail_image_url=what_food_url,
+            title="餐點選擇",
+            text="請選擇餐點類別",
+            actions=[
+                MessageAction(label="點心", text="Desserts"),
+                MessageAction(label="素食", text="Vegetarian"),
+                MessageAction(label="飲料", text="Drinks"),
+                MessageAction(label="不指定", text="None"),
+            ],
+        )
+        template_message_2 = TemplateSendMessage(
+            alt_text="餐點選擇", template=buttons_template
+        )
+        # 使用函式取得圖片消息
+        # image_message = create_image_carousel_template()
+
+        # line_bot_api.reply_message(user_id, template_message_2)
+        line_bot_api.reply_message(
+            event.reply_token, [template_message_1, template_message_2]
+        )
+        # --------------------------------------------------------------------------------------------#
     elif user_input in ["taiwanese", "japanese", "None"]:
         user_choices[user_id].append(user_input)
         buttons_template_price = ButtonsTemplate(
