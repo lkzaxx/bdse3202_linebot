@@ -8,18 +8,20 @@ def CommitQuery(query):
     password = "{Bigdata32!}"
     driver = "{ODBC Driver 17 for SQL Server}"
 
-    connection_string = (
-        "DRIVER="
-        + driver
-        + ";SERVER="
-        + server
-        + ";PORT=1433;DATABASE="
-        + database
-        + ";UID="
-        + username
-        + ";PWD="
-        + password
-    )
+    # connection_string = (
+    #     "DRIVER="
+    #     + driver
+    #     + ";SERVER="
+    #     + server
+    #     + ";PORT=1433;DATABASE="
+    #     + database
+    #     + ";UID="
+    #     + username
+    #     + ";PWD="
+    #     + password
+    # )
+
+    connection_string = f"DRIVER={driver};SERVER={server};PORT=1433;DATABASE={database};UID={username};PWD={password};Encrypt=yes;TrustServerCertificate=no"
 
     with pyodbc.connect(connection_string) as conn:
         with conn.cursor() as cursor:

@@ -10,12 +10,15 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
 from linebot.models import ImageCarouselColumn, ImageCarouselTemplate
 from z30_user_location import UserCoordinate
+from z40_chatgpt import ChatGptQuery
+import json
 
 
 chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
 japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
 western_food_url = "https://i.imgur.com/xsjOjLF.jpeg"
 what_food_url = "https://i.imgur.com/X0dzHbS.jpg"
+gpt_enabled = False
 
 user_choices = {}
 app = Flask(__name__)
@@ -76,10 +79,13 @@ def create_image_carousel_template():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    global gpt_enabled
     user_id = event.source.user_id
     user_input = event.message.text
     user_coordinate = UserCoordinate()
     print(user_coordinate)
+    # -----------------------------------------------------------------------------------------------------------
+    # ---餐點查詢-------------------------------------------------------------------------------------------------
     if user_input == "餐點查詢":
         user_choices[user_id] = []  # 每次查詢時重置該使用者的選擇
         # --------------------------------------------------------------------------------------------#
@@ -124,9 +130,8 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, template_message)
     elif user_input in [
         "Brunch",
-        "Desserts",
-        "Drinks",
-        "International",
+        "Desserts、Drinks",
+        "American、International",
         "J&K",
         "TW",
         "Vegetarian",
@@ -136,7 +141,7 @@ def handle_message(event):
     ]:
         user_choices[user_id].append(user_input)
         buttons_template_price = ButtonsTemplate(
-            title="價格選擇",
+            title=user_input,
             text="請選擇價格範圍",
             actions=[
                 MessageAction(label="100元", text="100"),
@@ -183,6 +188,82 @@ def handle_message(event):
         line_bot_api.reply_message(
             event.reply_token, TextSendMessage(text=reply_message)
         )
+    # ---餐點查詢-------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------
+    # ************************************************************************************************************************
+    # ************************************************************************************************************************
+    # ************************************************************************************************************************
+    # -----------------------------------------------------------------------------------------------------------
+    # ---價格分析-------------------------------------------------------------------------------------------------
+    elif user_input == "價格分析":
+        buttons_template_feature = ButtonsTemplate(
+            title="價格分析",
+            text="上傳圖片",
+            actions=[
+                MessageAction(label="CP高", text="high_cp"),
+                MessageAction(label="乾淨", text="clean"),
+                MessageAction(label="不選擇", text="None"),
+            ],
+        )
+        template_message_feature = TemplateSendMessage(
+            alt_text="價格分析", template=buttons_template_feature
+        )
+        line_bot_api.reply_message(event.reply_token, template_message_feature)
+    # ---價格分析-------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------
+    # ************************************************************************************************************************
+    # ************************************************************************************************************************
+    # ************************************************************************************************************************
+    # -----------------------------------------------------------------------------------------------------------
+    # ---CHATGPT-------------------------------------------------------------------------------------------------
+    elif user_input == "呼叫GPT，我想花佑齊的錢":
+        buttons_template_feature = ButtonsTemplate(
+            title="CHAT",
+            text="GPT",
+            actions=[
+                MessageAction(label="真的嗎(yes)", text="yes"),
+                MessageAction(label="確定喔(yes)", text="yes"),
+                MessageAction(label="一則0.01美(no)", text="no"),
+            ],
+        )
+        template_message_feature = TemplateSendMessage(
+            alt_text="CHAT", template=buttons_template_feature
+        )
+        line_bot_api.reply_message(event.reply_token, template_message_feature)
+    elif user_input in ["yes"]:
+        reply_msg = "已開啟chatgpt"
+        text_message = TextSendMessage(text=reply_msg)
+        line_bot_api.reply_message(event.reply_token, text_message)
+        gpt_enabled = True
+    elif user_input == "closegpt":
+        gpt_enabled = False
+        reply_msg = "已關閉chatgpt"
+        text_message = TextSendMessage(text=reply_msg)
+        line_bot_api.reply_message(event.reply_token, text_message)
+    elif user_input != None:
+        print(user_input)
+        if user_input is not None and gpt_enabled:
+            print("已開啟chatgpt")
+            ask_msg = "hi ai:" + user_input
+            reply_msg = ChatGptQuery(ask_msg)
+            text_message = TextSendMessage(text=reply_msg)
+            # -----------------------------------------------------------
+            buttons_template_feature = ButtonsTemplate(
+                title="CHAT",
+                text="GPT",
+                actions=[
+                    MessageAction(label="關閉chatgpt", text="closegpt"),
+                ],
+            )
+            template_message_feature = TemplateSendMessage(
+                alt_text="CHAT", template=buttons_template_feature
+            )
+            # -----------------------------------------------------------
+            line_bot_api.reply_message(
+                event.reply_token, [template_message_feature, text_message]
+            )
+    # ---CHATGPT-------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------
 
 
 if __name__ == "__main__":
