@@ -3,8 +3,8 @@
 
 def UserCoordinate():
     user_latitude = 25.03413655927905
-    user_liongitude = 121.54343435506429
-    user_coordinate = (user_latitude, user_liongitude)
+    user_longitude = 121.54343435506429
+    user_coordinate = f"{user_latitude},{user_longitude}"
     return user_coordinate
 
 

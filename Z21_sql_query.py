@@ -1,7 +1,7 @@
 import pyodbc
 
 
-def CommitQuery(query):
+def SqlQuery(query):
     server = "linebot.database.windows.net"
     database = "data"
     username = "bdse32"
@@ -33,7 +33,7 @@ def CommitQuery(query):
 if __name__ == "__main__":
     # 在這裡可以放入您想要執行的 SQL 查詢
     query = "SELECT TOP 1 * FROM google_commit"
-    result = CommitQuery(query)
+    result = SqlQuery(query)
 
     # 印出結果
     for row in result:

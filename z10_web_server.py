@@ -11,6 +11,8 @@ from linebot.models import *
 from linebot.models import ImageCarouselColumn, ImageCarouselTemplate
 from z30_user_location import UserCoordinate
 from z40_chatgpt import ChatGptQuery
+from Z21_sql_query import SqlQuery
+from z20_azure_sql import QueryBuild
 import json
 
 
@@ -173,21 +175,43 @@ def handle_message(event):
 
         # 在這裡處理使用者的選擇
         if len(user_choices[user_id]) == 3:
-            category = user_choices[user_id][0]
+            type = user_choices[user_id][0]
             price = user_choices[user_id][1]
             feature = user_choices[user_id][2]
             # 在這裡添加基於 category、price 和 feature 的邏輯處理
             # 例如：回應相關的餐點資訊或執行查詢等操作
 
-            reply_message = f"您選擇了類別：{category}，價格：{price}，特色：{feature}，座標:{user_coordinate}。正在處理您的請求..."
+            reply_message = f"您選擇了類別：{type}，價格：{price}，特色：{feature}，座標:{user_coordinate}。正在處理您的請求..."
+            # re_msg = f"您選擇了類別：{type}，價格：{price}，特色：{feature}，座標:{user_coordinate}。正在處理您的請求..."
+            food_query_dict = {
+                "type": type,
+                "price": price,
+                "feature": feature,
+                "user_coordinate": user_coordinate,
+            }
+            sql_query = QueryBuild(food_query_dict)
+            print(sql_query)
+            result = SqlQuery(sql_query)
+
+            # 印出結果
+            reply_arr = []
+            for row in result:
+                name_and_distance = row[0]
+                distance = row[1]
+                cleaned_name = name_and_distance.split("(")[0].strip()
+                cleaned_distance = f"{int(distance)} 公尺"
+                row = f"{cleaned_name}, {cleaned_distance}"
+                print(row)
+                reply_arr.append(TextSendMessage(f"{row}"))
+
+            reply_message = reply_arr
+
         else:
             reply_message = "發生錯誤：無法識別的選擇序列。"
 
         # 處理完畢後，清空使用者的選項
         user_choices[user_id] = []
-        line_bot_api.reply_message(
-            event.reply_token, TextSendMessage(text=reply_message)
-        )
+        line_bot_api.reply_message(event.reply_token, reply_arr)
     # ---餐點查詢-------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------
     # ************************************************************************************************************************
@@ -260,7 +284,7 @@ def handle_message(event):
             )
             # -----------------------------------------------------------
             line_bot_api.reply_message(
-                event.reply_token, [template_message_feature, text_message]
+                event.reply_token, [text_message, template_message_feature]
             )
     # ---CHATGPT-------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------
