@@ -12,7 +12,7 @@ from linebot.models import ImageCarouselColumn, ImageCarouselTemplate
 from z30_user_location import UserCoordinate
 from z40_chatgpt import ChatGptQuery
 from Z21_sql_query import SqlQuery
-from z20_azure_sql import QueryBuild
+from z20_azure_sql import StoreQueryBuild, CommitQueryBuild
 import json
 
 
@@ -98,9 +98,9 @@ def handle_message(event):
                     title="餐點選擇",
                     text="請選擇餐點類別",
                     actions=[
-                        MessageAction(label="台式", text="TW"),
-                        MessageAction(label="日韓", text="J&K"),
-                        MessageAction(label="美式、西式", text="American、International"),
+                        MessageAction(label="台式", text="'TW'"),
+                        MessageAction(label="日韓", text="'J&K'"),
+                        MessageAction(label="美式、西式", text="'American','International'"),
                     ],
                 ),
                 CarouselColumn(
@@ -108,9 +108,9 @@ def handle_message(event):
                     title="餐點選擇",
                     text="請選擇餐點類別",
                     actions=[
-                        MessageAction(label="早午餐", text="Brunch"),
-                        MessageAction(label="素食", text="Vegetarian"),
-                        MessageAction(label="點心、飲料", text="Desserts、Drinks"),
+                        MessageAction(label="早午餐", text="'Brunch'"),
+                        MessageAction(label="素食", text="'Vegetarian'"),
+                        MessageAction(label="點心、飲料", text="'Desserts','Drinks'"),
                     ],
                 ),
                 CarouselColumn(
@@ -131,12 +131,12 @@ def handle_message(event):
         # --------------------------------------------------------------------------------------------#
         line_bot_api.reply_message(event.reply_token, template_message)
     elif user_input in [
-        "Brunch",
-        "Desserts、Drinks",
-        "American、International",
-        "J&K",
-        "TW",
-        "Vegetarian",
+        "'Brunch'",
+        "'Desserts','Drinks'",
+        "'American','International'",
+        "'J&K'",
+        "'TW'",
+        "'Vegetarian'",
         "random100m",
         "random500m",
         "random1000m",
@@ -148,14 +148,14 @@ def handle_message(event):
             actions=[
                 MessageAction(label="100元", text="100"),
                 MessageAction(label="200元", text="200"),
-                MessageAction(label="不指定", text="None"),
+                MessageAction(label="不指定", text="pNone"),
             ],
         )
         template_message_price = TemplateSendMessage(
             alt_text="價格選擇", template=buttons_template_price
         )
         line_bot_api.reply_message(event.reply_token, template_message_price)
-    elif user_input in ["100", "200", "None"]:
+    elif user_input in ["100", "200", "pNone"]:
         user_choices[user_id].append(user_input)
         buttons_template_feature = ButtonsTemplate(
             title="特色選擇",
@@ -163,14 +163,14 @@ def handle_message(event):
             actions=[
                 MessageAction(label="CP高", text="high_cp"),
                 MessageAction(label="乾淨", text="clean"),
-                MessageAction(label="不選擇", text="None"),
+                MessageAction(label="不選擇", text="tNone"),
             ],
         )
         template_message_feature = TemplateSendMessage(
             alt_text="特色選擇", template=buttons_template_feature
         )
         line_bot_api.reply_message(event.reply_token, template_message_feature)
-    elif user_input in ["high_cp", "clean", "None"]:
+    elif user_input in ["high_cp", "clean", "tNone"]:
         user_choices[user_id].append(user_input)
 
         # 在這裡處理使用者的選擇
@@ -189,29 +189,56 @@ def handle_message(event):
                 "feature": feature,
                 "user_coordinate": user_coordinate,
             }
-            sql_query = QueryBuild(food_query_dict)
+            sql_query = StoreQueryBuild(food_query_dict)
             print(sql_query)
             result = SqlQuery(sql_query)
 
             # 印出結果
             reply_arr = []
+            choice_buttons_text = []
             for row in result:
                 name_and_distance = row[0]
                 distance = row[1]
                 cleaned_name = name_and_distance.split("(")[0].strip()
                 cleaned_distance = f"{int(distance)} 公尺"
+                # 限制名稱長度為 20 個字元
+                if len(cleaned_name) + len(cleaned_distance) > 20:
+                    cleaned_name_max = 18 - len(cleaned_distance)  # len(,) =2
+                    cleaned_name = cleaned_name[:cleaned_name_max]
                 row = f"{cleaned_name}, {cleaned_distance}"
-                print(row)
+                choice_buttons_text.append(row)
+
                 reply_arr.append(TextSendMessage(f"{row}"))
 
             reply_message = reply_arr
-
+            print(choice_buttons_text)
         else:
             reply_message = "發生錯誤：無法識別的選擇序列。"
 
-        # 處理完畢後，清空使用者的選項
+        actions = []
+        reply_restaurant = []
+        for text in choice_buttons_text:
+            restaurant_name = text.split(", ")[0]
+            reply_restaurant.append("'" + restaurant_name + "'")
+            actions.append(MessageAction(label=text, text="'" + restaurant_name + "'"))
+        # 如果 choice_buttons_text 為空，加入 "無餐廳" 的 MessageAction
+        if not actions:
+            actions.append(MessageAction(label="無餐廳", text="無餐廳"))
+        # -------------------------------------------------------------
+        buttons_template_feature = ButtonsTemplate(
+            title="餐廳選擇", text="想吃甚麼", actions=actions
+        )
+        template_message_feature = TemplateSendMessage(
+            alt_text="餐廳選擇", template=buttons_template_feature
+        )
+        line_bot_api.reply_message(event.reply_token, template_message_feature)
+        # line_bot_api.reply_message(event.reply_token, reply_message)
+        # -------------------------------------------------------------
         user_choices[user_id] = []
-        line_bot_api.reply_message(event.reply_token, reply_arr)
+    elif user_input in ["high_cp", "clean", "tNone"]:
+        store_query_dict = {"name": user_input}
+
+        # 處理完畢後，清空使用者的選項
     # ---餐點查詢-------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------
     # ************************************************************************************************************************
