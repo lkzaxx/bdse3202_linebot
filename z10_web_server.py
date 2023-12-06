@@ -14,7 +14,7 @@ from linebot.models import ImageCarouselColumn, ImageCarouselTemplate, LocationM
 from z20_azure_sql import StoreInfoQueryBuild, StoreQueryBuild
 from Z21_sql_query import SqlQuery
 from z30_user_location import UserCoordinate
-from z40_chatgpt import ChatGptQuery
+from z40_chatgpt import ChatGptCommitQuery, ChatGptQuery
 
 chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
 japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
@@ -31,6 +31,8 @@ config.read("config.ini")
 
 line_bot_api = LineBotApi(config.get("line-bot", "channel_access_token"))
 handler = WebhookHandler(config.get("line-bot", "channel_secret"))
+global store_choice_info
+store_choice_info = []
 
 # 接收 LINE 的資訊
 
@@ -247,10 +249,9 @@ def handle_message(event):
         actions = []
         reply_restaurant = []
         # --------------------------------------------------------------------------------------------#
-        global store_choice_info
 
         template_columns = []
-        store_choice_info = []
+
         for text in choice_buttons_text:
             restaurant_name = text.split(", ")[0]
             restaurant_distance = text.split(", ")[1]
@@ -285,18 +286,30 @@ def handle_message(event):
         )
         line_bot_api.reply_message(event.reply_token, template_message)
         # --------------------------------------------------------------------------------------------#
-        # 處理完畢後，清空使用者的選項
     elif user_input in store_choice_info:
         restaurant_name = user_input.split(",")[0]
         store_info = user_input.split(",")[1]
-        print(restaurant_name, store_info)
         store_query_dict = {"name": restaurant_name, "info": store_info}
         sql_query = StoreInfoQueryBuild(store_query_dict)
         print(sql_query)
         result = SqlQuery(sql_query)
-        text_message = result
-        print(result)
+        for row in result:
+            result_info = row[0]
+        # print(result_info)
+        if store_info == "commit":
+            # 移除換行符號
+            result_info = result_info.replace("\n", "")
+            # 移除空白
+            result_info = " ".join(result_info.split())
+            print(len(result_info))
+            # ask_msg = f"hi ai:以下是'{restaurant_name}'店家評價，請整合評價內容來'簡單介紹'店家，請使用150個字內的中文，評價='{result_info }'"
+            ask_msg = f"hi ai:'店名:{restaurant_name}',店家評價:{result_info}'"
+            reply_msg = ChatGptCommitQuery(ask_msg)
+            text_message = TextSendMessage(text=reply_msg)
+        elif store_info == "address":
+            text_message = TextSendMessage(text=result_info)
         line_bot_api.reply_message(event.reply_token, text_message)
+        # 處理完畢後，清空使用者的選項
         user_choices[user_id] = []
     # ---餐點查詢-------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------

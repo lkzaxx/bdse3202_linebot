@@ -81,7 +81,7 @@ def StoreInfoQueryBuild(store_query_dict):
     store_info = store_query_dict["info"]
 
     sql_query = f"""
-        SELECT {store_info}
+        SELECT TOP 1 SUBSTRING([{store_info}], 1, 3000) AS truncated_result
         FROM google_commit
         WHERE name LIKE '%' + {store_name} + '%';
         """

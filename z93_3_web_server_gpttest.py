@@ -9,9 +9,9 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
 from linebot.models import ImageCarouselColumn, ImageCarouselTemplate
-from z30_user_location import UserCoordinate
-from z40_chatgpt import ChatGptQuery
 
+from z30_user_location import UserCoordinate
+from z40_chatgpt import ChatGptCommitQuery
 
 chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
 japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
@@ -73,7 +73,7 @@ def handle_message(event):
         # reply_msg = "在要問GPT的句子打上hi ai:"
         # text_message = TextSendMessage(text=reply_msg)
         reply_msg = "hi ai:請問python是甚麼"
-        reply_msg = ChatGptQuery(reply_msg)
+        reply_msg = ChatGptCommitQuery(reply_msg)
         print(reply_msg)
         text_message = TextSendMessage(text=reply_msg)
         line_bot_api.reply_message(event.reply_token, text_message)
