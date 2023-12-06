@@ -11,7 +11,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
 from linebot.models import ImageCarouselColumn, ImageCarouselTemplate, LocationMessage
 
-from z20_azure_sql import StoreInfoQueryBuild, StoreQueryBuild
+from z20_azure_sql import StoreFoodNameQueryBuild, StoreInfoQueryBuild, StoreQueryBuild
 from Z21_sql_query import SqlQuery
 from z30_user_location import UserCoordinate
 from z40_chatgpt import ChatGptCommitQuery, ChatGptQuery
@@ -290,13 +290,15 @@ def handle_message(event):
         restaurant_name = user_input.split(",")[0]
         store_info = user_input.split(",")[1]
         store_query_dict = {"name": restaurant_name, "info": store_info}
-        sql_query = StoreInfoQueryBuild(store_query_dict)
-        print(sql_query)
-        result = SqlQuery(sql_query)
-        for row in result:
-            result_info = row[0]
-        # print(result_info)
+        result_info = []
         if store_info == "commit":
+            # ----------------------------------------------------------
+            sql_query = StoreInfoQueryBuild(store_query_dict)
+            print(sql_query)
+            result = SqlQuery(sql_query)
+            for row in result:
+                result_info = row[0]
+            # ----------------------------------------------------------
             # 移除換行符號
             result_info = result_info.replace("\n", "")
             # 移除空白
@@ -307,7 +309,25 @@ def handle_message(event):
             reply_msg = ChatGptCommitQuery(ask_msg)
             text_message = TextSendMessage(text=reply_msg)
         elif store_info == "address":
+            # ----------------------------------------------------------
+            sql_query = StoreInfoQueryBuild(store_query_dict)
+            print(sql_query)
+            result = SqlQuery(sql_query)
+            for row in result:
+                result_info = row[0]
+            # ----------------------------------------------------------
             text_message = TextSendMessage(text=result_info)
+        elif store_info == "food_name":
+            # ----------------------------------------------------------
+            sql_query = StoreFoodNameQueryBuild(store_query_dict)
+            print(sql_query)
+            result = SqlQuery(sql_query)
+            print(result)
+            for row in result:
+                result_info.append(row[0])
+            print(result_info)
+            # ----------------------------------------------------------
+            text_message = TextSendMessage(text=str(result_info))
         line_bot_api.reply_message(event.reply_token, text_message)
         # 處理完畢後，清空使用者的選項
         user_choices[user_id] = []

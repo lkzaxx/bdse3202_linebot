@@ -89,6 +89,33 @@ def StoreInfoQueryBuild(store_query_dict):
     return sql_query
 
 
+def StoreFoodNameQueryBuild(store_query_dict):
+    store_name = "N'" + store_query_dict["name"] + "'"
+    store_info = store_query_dict["info"]
+
+    sql_query = f"""
+        -- 使用 name 查詢 google_commit 表格獲取對應的 id
+        DECLARE @GoogleCommitId NVARCHAR(255);
+        SELECT @GoogleCommitId = id
+        FROM google_commit
+        WHERE name like'%' + {store_name} + '%';
+
+        -- 使用獲得的 id 查詢 store_data 表格獲取相應的 food_name 列表
+        IF @GoogleCommitId IS NOT NULL
+        BEGIN
+            SELECT food_name
+            FROM store_data
+            WHERE id = @GoogleCommitId;
+        END
+        ELSE
+        BEGIN
+            PRINT '找不到對應的名稱。';
+        END
+        """
+
+    return sql_query
+
+
 if __name__ == "__main__":
     # 在這裡可以放入您想要執行的 SQL 查詢
     # query = "SELECT TOP 1 * FROM google_commit"
