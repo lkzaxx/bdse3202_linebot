@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import configparser
+import json
 import os
 import random
 
@@ -8,13 +9,12 @@ from flask import Flask, abort, request
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
-from linebot.models import ImageCarouselColumn, ImageCarouselTemplate
+from linebot.models import ImageCarouselColumn, ImageCarouselTemplate, LocationMessage
+
+from z20_azure_sql import StoreInfoQueryBuild, StoreQueryBuild
+from Z21_sql_query import SqlQuery
 from z30_user_location import UserCoordinate
 from z40_chatgpt import ChatGptQuery
-from Z21_sql_query import SqlQuery
-from z20_azure_sql import StoreQueryBuild, CommitQueryBuild
-import json
-
 
 chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
 japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
@@ -79,17 +79,46 @@ def create_image_carousel_template():
     return template_message
 
 
-@handler.add(MessageEvent, message=TextMessage)
+# @handler.add(MessageEvent, message=TextMessage)
+@handler.add(MessageEvent)
 def handle_message(event):
     global gpt_enabled
+    global user_coordinate
+    global template_message
     user_id = event.source.user_id
-    user_input = event.message.text
-    user_coordinate = UserCoordinate()
-    print(user_coordinate)
+    event_type = event.message.type
+    if event_type == "text":
+        user_input = event.message.text
+    elif event_type == "location":
+        user_input = event.message.type
+        user_latitude = event.message.latitude
+        user_longitude = event.message.longitude
+        user_address = event.message.address
+        print(user_id, user_latitude, user_longitude, user_address)
+        user_coordinate = f"{user_latitude},{user_longitude}"
+    elif event_type == "image":
+        user_input = event.message.id
     # -----------------------------------------------------------------------------------------------------------
     # ---餐點查詢-------------------------------------------------------------------------------------------------
     if user_input == "餐點查詢":
         user_choices[user_id] = []  # 每次查詢時重置該使用者的選擇
+        # --------------------------------------------------------------------------------------------#
+        buttons_template_feature = ButtonsTemplate(
+            title="目前位置",
+            text="選擇地點",
+            actions=[
+                MessageAction(label="不選擇位置", text="不選擇位置"),
+                URIAction(label="位置", uri="https://line.me/R/nv/location/"),
+            ],
+        )
+        template_message_feature = TemplateSendMessage(
+            alt_text="價格分析", template=buttons_template_feature
+        )
+        line_bot_api.reply_message(event.reply_token, template_message_feature)
+        # --------------------------------------------------------------------------------------------#
+    elif user_input == "不選擇位置" or event_type == "location":
+        if user_input == "不選擇位置":
+            user_coordinate = UserCoordinate()
         # --------------------------------------------------------------------------------------------#
         buttons_template = CarouselTemplate(
             columns=[
@@ -217,28 +246,58 @@ def handle_message(event):
 
         actions = []
         reply_restaurant = []
+        # --------------------------------------------------------------------------------------------#
+        global store_choice_info
+
+        template_columns = []
+        store_choice_info = []
         for text in choice_buttons_text:
             restaurant_name = text.split(", ")[0]
-            reply_restaurant.append("'" + restaurant_name + "'")
-            actions.append(MessageAction(label=text, text="'" + restaurant_name + "'"))
+            restaurant_distance = text.split(", ")[1]
+            reply_restaurant.append(restaurant_name)
+            store_choice_info.append(restaurant_name + ",food_name")
+            store_choice_info.append(restaurant_name + ",commit")
+            store_choice_info.append(restaurant_name + ",address")
+            template_columns.append(
+                CarouselColumn(
+                    title=restaurant_name,
+                    text=restaurant_distance,
+                    actions=[
+                        MessageAction(label="菜單", text=f"{restaurant_name},food_name"),
+                        MessageAction(label="店家評論", text=f"{restaurant_name},commit"),
+                        MessageAction(label="位置", text=f"{restaurant_name},address"),
+                    ],
+                )
+            )
+        print(store_choice_info)
         # 如果 choice_buttons_text 為空，加入 "無餐廳" 的 MessageAction
-        if not actions:
-            actions.append(MessageAction(label="無餐廳", text="無餐廳"))
-        # -------------------------------------------------------------
-        buttons_template_feature = ButtonsTemplate(
-            title="餐廳選擇", text="想吃甚麼", actions=actions
+        if not template_columns:
+            template_columns.append(
+                CarouselColumn(
+                    title="無餐廳",
+                    text="無餐廳",
+                    actions=[MessageAction(label="重新查詢", text="餐點查詢")],
+                )
+            )
+        buttons_template = CarouselTemplate(columns=template_columns)
+        template_message = TemplateSendMessage(
+            alt_text="餐廳選擇", template=buttons_template
         )
-        template_message_feature = TemplateSendMessage(
-            alt_text="餐廳選擇", template=buttons_template_feature
-        )
-        line_bot_api.reply_message(event.reply_token, template_message_feature)
-        # line_bot_api.reply_message(event.reply_token, reply_message)
-        # -------------------------------------------------------------
-        user_choices[user_id] = []
-    elif user_input in ["high_cp", "clean", "tNone"]:
-        store_query_dict = {"name": user_input}
-
+        line_bot_api.reply_message(event.reply_token, template_message)
+        # --------------------------------------------------------------------------------------------#
         # 處理完畢後，清空使用者的選項
+    elif user_input in store_choice_info:
+        restaurant_name = user_input.split(",")[0]
+        store_info = user_input.split(",")[1]
+        print(restaurant_name, store_info)
+        store_query_dict = {"name": restaurant_name, "info": store_info}
+        sql_query = StoreInfoQueryBuild(store_query_dict)
+        print(sql_query)
+        result = SqlQuery(sql_query)
+        text_message = result
+        print(result)
+        line_bot_api.reply_message(event.reply_token, text_message)
+        user_choices[user_id] = []
     # ---餐點查詢-------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------
     # ************************************************************************************************************************
@@ -249,17 +308,17 @@ def handle_message(event):
     elif user_input == "價格分析":
         buttons_template_feature = ButtonsTemplate(
             title="價格分析",
-            text="上傳圖片",
+            text="上傳照片",
             actions=[
-                MessageAction(label="CP高", text="high_cp"),
-                MessageAction(label="乾淨", text="clean"),
-                MessageAction(label="不選擇", text="None"),
+                URIAction(label="相機拍攝照片", uri="https://line.me/R/nv/camera/"),
+                URIAction(label="選擇相簿照片", uri="https://line.me/R/nv/cameraRoll/single"),
             ],
         )
         template_message_feature = TemplateSendMessage(
             alt_text="價格分析", template=buttons_template_feature
         )
         line_bot_api.reply_message(event.reply_token, template_message_feature)
+
     # ---價格分析-------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------
     # ************************************************************************************************************************
@@ -292,7 +351,6 @@ def handle_message(event):
         text_message = TextSendMessage(text=reply_msg)
         line_bot_api.reply_message(event.reply_token, text_message)
     elif user_input != None:
-        print(user_input)
         if user_input is not None and gpt_enabled:
             print("已開啟chatgpt")
             ask_msg = "hi ai:" + user_input

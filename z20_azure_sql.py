@@ -1,5 +1,6 @@
-from Z21_sql_query import SqlQuery
 import re
+
+from Z21_sql_query import SqlQuery
 
 """
 NULL
@@ -68,19 +69,21 @@ def StoreQueryBuild(food_query_dict):
             FROM google_commit
             WHERE
                 type IN ({type}) AND
+                latitude IS NOT NULL AND
                 GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= 1000
             ORDER BY distance;
         """
     return sql_query
 
 
-def CommitQueryBuild(store_query_dict):
-    store_name = "N" + store_query_dict["name"]
+def StoreInfoQueryBuild(store_query_dict):
+    store_name = "N'" + store_query_dict["name"] + "'"
+    store_info = store_query_dict["info"]
 
     sql_query = f"""
-        SELECT commit
+        SELECT {store_info}
         FROM google_commit
-        WHERE name LIKE '%' + {store_name} + '%' AND commit IS NOT NULL;
+        WHERE name LIKE '%' + {store_name} + '%';
         """
 
     return sql_query
