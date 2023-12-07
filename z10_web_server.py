@@ -127,7 +127,7 @@ def handle_message(event):
                 CarouselColumn(
                     thumbnail_image_url=what_food_url,
                     title="餐點選擇",
-                    text="請選擇餐點類別",
+                    text="請選擇餐點\n請選擇餐點",
                     actions=[
                         MessageAction(label="台式", text="'TW'"),
                         MessageAction(label="日韓", text="'J&K'"),

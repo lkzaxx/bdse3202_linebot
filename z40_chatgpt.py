@@ -86,7 +86,7 @@ def ChatGptQuery(msg):
                 model="text-davinci-003",
                 # 將第六個字元之後的訊息發送給 OpenAI
                 # prompt=msg[6:],
-                prompt=msg + "\n請使用繁體中文，及150字內說明。",
+                prompt=msg + "\n請使用繁體中文，不要超過150字說明。",
                 max_tokens=500,
                 temperature=0.8,
                 frequency_penalty=0.5,
