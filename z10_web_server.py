@@ -160,6 +160,18 @@ def handle_message(event):
             alt_text="餐點選擇", template=buttons_template
         )
         # --------------------------------------------------------------------------------------------#
+        # --距離選擇-----------------------------------------------------------------------------------#
+    elif user_input in [
+        "'Brunch'",
+        "'Desserts','Drinks'",
+        "'American','International'",
+        "'J&K'",
+        "'TW'",
+        "'Vegetarian'",
+    ]:
+        user_choices[user_id].append(user_input)
+        # --距離選擇-----------------------------------------------------------------------------------#
+        # --------------------------------------------------------------------------------------------#
         line_bot_api.reply_message(event.reply_token, template_message)
     elif user_input in [
         "'Brunch'",
