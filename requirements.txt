@@ -8,3 +8,5 @@ gunicorn
 openai
 transformers
 tiktoken
+azure-storage-blob
+tensorflow
