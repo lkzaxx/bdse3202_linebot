@@ -35,63 +35,48 @@ def FoodQueryBuild(food_query_dict):
     # }
 
     # 透過字典取得相應的值
-    distance = food_query_dict["distance"][:-1]  # 切片去掉最後一個字符
-    price = food_query_dict["price"]
-    type = "N'" + food_query_dict["type"] + "'"
-    sort = "N'" + food_query_dict["sort"] + "'"
-
-    # 分割字串，並取得下限和上限值
-    if price == "300up":
-        price_lower = "300"
-        price_upper = "5000"
-    else:
-        price_lower, price_upper = map(int, price.split("~"))
-
+    type_list = food_query_dict["type"]
+    # type = type_list[0]
+    type = type_list
     user_coordinate = food_query_dict["user_coordinate"]
+    distance = food_query_dict["distance"]
     # 建立地理點
     target_location = f"geography::Point({user_coordinate}, 4326)"
     latitude, longitude = map(float, user_coordinate.split(","))
-    print(target_location)
-    print(f"distance={distance}")
-
-    # 建立 SQL 查詢字串
-    sql_query = f"""
-        SELECT TOP 10
-            sd.food_name,
-            sd.price,
-            sd.address,
-            sd.pic_id,
-            gc.name,
-            GEOGRAPHY::Point(sd.latitude, sd.longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
-        FROM (
-            SELECT TOP 100 PERCENT -- 是一種用於指定返回所有行的方法
-                ID,
-                food_name,
-                price,
-                address,
-                pic_id,
-                latitude,
-                longitude
-            FROM store_data
+    print(food_query_dict["type"][:6])
+    if food_query_dict["type"] == "none":
+        # match = re.search(r"\d+", food_query_dict["type"])
+        # distance = int(match.group())
+        print(f"distance={distance}")
+        print(target_location)
+        # 建立 SQL 查詢字串
+        sql_query = f"""
+            SELECT TOP 10
+                name,
+                GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
+            FROM google_commit
             WHERE
                 latitude IS NOT NULL AND
-                sort IS NOT NULL AND
-                GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
-                (type = ({type}) OR ({type}) IS NULL) AND
-                (price >= {price_lower} OR {price_lower} IS NULL) AND 
-                (price <= {price_upper} OR {price_upper} IS NULL) AND
-                sort = {sort}
-            ORDER BY NEWID() -- 隨機排序
-        ) sd
-        LEFT JOIN google_commit gc ON sd.ID = gc.ID
-        ORDER BY distance; -- 以 distance 排序
+                GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance}
+            ORDER BY NEWID();
+            """
+    else:
+        # 建立 SQL 查詢字串
+        sql_query = f"""
+            SELECT TOP 10
+                name,
+                GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
+            FROM google_commit
+            WHERE
+                type IN ({type}) AND
+                latitude IS NOT NULL AND
+                GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= 1000
+            ORDER BY distance;
         """
-
     return sql_query
 
 
 def StoreInfoQueryBuild(store_query_dict):
-    store_query_dict["name"] = store_query_dict["name"].replace("'", "''")
     store_name = "N'" + store_query_dict["name"] + "'"
     store_info = store_query_dict["info"]
 

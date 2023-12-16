@@ -4,6 +4,7 @@ import configparser
 import json
 import os
 import random
+import urllib.parse
 
 from flask import Flask, abort, request
 from linebot import LineBotApi, WebhookHandler
@@ -11,10 +12,12 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import *
 from linebot.models import ImageCarouselColumn, ImageCarouselTemplate, LocationMessage
 
-from z20_azure_sql import StoreFoodNameQueryBuild, StoreInfoQueryBuild, StoreQueryBuild
+from z20_azure_sql import FoodQueryBuild, StoreFoodNameQueryBuild, StoreInfoQueryBuild
 from Z21_sql_query import SqlQuery
 from z30_user_location import UserCoordinate
 from z40_chatgpt import ChatGptCommitQuery, ChatGptQuery
+from z50_upload_image_azure_blob import upload_image_to_azure_blob
+from z60_ImagePredictor import ImagePredictor
 
 chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
 japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
@@ -33,8 +36,23 @@ line_bot_api = LineBotApi(config.get("line-bot", "channel_access_token"))
 handler = WebhookHandler(config.get("line-bot", "channel_secret"))
 global store_choice_info
 store_choice_info = []
+store_choice_commit = []
+store_choice_address = []
 
 # 接收 LINE 的資訊
+
+
+def generate_google_maps_link(address):
+    # 將地址轉換為 URL 安全的格式
+    encoded_address = urllib.parse.quote(address)
+
+    # Google Maps 靜態地圖 API 的基本 URL
+    base_url = "https://maps.googleapis.com/maps/api/staticmap"
+
+    # 構建完整的 URL
+    map_url = f"{base_url}?center={encoded_address}&size=400x400&markers=color:red%7Clabel:A%7C{encoded_address}"
+
+    return map_url
 
 
 @app.route("/food", methods=["POST"])
@@ -104,7 +122,8 @@ def handle_message(event):
     # ---餐點查詢-------------------------------------------------------------------------------------------------
     if user_input == "餐點查詢":
         user_choices[user_id] = []  # 每次查詢時重置該使用者的選擇
-        # --------------------------------------------------------------------------------------------#
+
+        # ---位置-----------------------------------------------------------------------------------------#
         buttons_template_feature = ButtonsTemplate(
             title="目前位置",
             text="選擇地點",
@@ -117,41 +136,67 @@ def handle_message(event):
             alt_text="價格分析", template=buttons_template_feature
         )
         line_bot_api.reply_message(event.reply_token, template_message_feature)
-        # --------------------------------------------------------------------------------------------#
+        # --位置end------------------------------------------------------------------------------------------#
+        # --距離------------------------------------------------------------------------------------------#
     elif user_input == "不選擇位置" or event_type == "location":
         if user_input == "不選擇位置":
             user_coordinate = UserCoordinate()
-        # --------------------------------------------------------------------------------------------#
+
         buttons_template = CarouselTemplate(
             columns=[
                 CarouselColumn(
                     thumbnail_image_url=what_food_url,
-                    title="餐點選擇",
-                    text="請選擇餐點\n請選擇餐點\n請選擇餐點",
+                    title="餐廳距離",
+                    text="請選擇距離",
                     actions=[
-                        MessageAction(label="台式", text="'TW'"),
-                        MessageAction(label="日韓", text="'J&K'"),
-                        MessageAction(label="美式、西式", text="'American','International'"),
+                        MessageAction(label="500m", text="500m"),
+                        MessageAction(label="1000m", text="1000m"),
+                        MessageAction(label="2000m", text="2000m"),
+                    ],
+                ),
+            ]
+        )
+        template_message = TemplateSendMessage(
+            alt_text="location", template=buttons_template
+        )
+        line_bot_api.reply_message(event.reply_token, template_message)
+        # ---距離end-----------------------------------------------------------------------------------------#
+    elif user_input in [
+        "500m",
+        "1000m",
+        "2000m",
+    ]:
+        user_choices[user_id].append(user_input)
+        buttons_template = CarouselTemplate(
+            columns=[
+                CarouselColumn(
+                    thumbnail_image_url=what_food_url,
+                    title="類別選擇",
+                    text="請選擇類別",
+                    actions=[
+                        MessageAction(label="台式", text="TW"),
+                        MessageAction(label="日韓", text="J&K"),
+                        MessageAction(label="美式", text="American"),
                     ],
                 ),
                 CarouselColumn(
                     thumbnail_image_url=western_food_url,
-                    title="餐點選擇",
+                    title="類別選擇",
                     text="請選擇餐點類別",
                     actions=[
-                        MessageAction(label="早午餐", text="'Brunch'"),
-                        MessageAction(label="素食", text="'Vegetarian'"),
-                        MessageAction(label="點心、飲料", text="'Desserts','Drinks'"),
+                        MessageAction(label="西式", text="International"),
+                        MessageAction(label="早午餐", text="Brunch"),
+                        MessageAction(label="素食", text="Vegetarian"),
                     ],
                 ),
                 CarouselColumn(
-                    thumbnail_image_url=chinese_food_image_url,
-                    title="餐點選擇",
+                    thumbnail_image_url=western_food_url,
+                    title="類別選擇",
                     text="請選擇餐點類別",
                     actions=[
-                        MessageAction(label="隨機100公尺內", text="random100m"),
-                        MessageAction(label="隨機500公尺內", text="random500m"),
-                        MessageAction(label="隨機1000公尺內", text="random1000m"),
+                        MessageAction(label="點心", text="Desserts"),
+                        MessageAction(label="飲料", text="Drinks"),
+                        MessageAction(label="不選擇", text="none"),
                     ],
                 ),
             ]
@@ -159,130 +204,167 @@ def handle_message(event):
         template_message = TemplateSendMessage(
             alt_text="餐點選擇", template=buttons_template
         )
-        # --------------------------------------------------------------------------------------------#
-        # --距離選擇-----------------------------------------------------------------------------------#
-    elif user_input in [
-        "'Brunch'",
-        "'Desserts','Drinks'",
-        "'American','International'",
-        "'J&K'",
-        "'TW'",
-        "'Vegetarian'",
-    ]:
-        user_choices[user_id].append(user_input)
-        # --距離選擇-----------------------------------------------------------------------------------#
-        # --------------------------------------------------------------------------------------------#
         line_bot_api.reply_message(event.reply_token, template_message)
+        # --------------------------------------------------------------------------------------------#
+        # --價錢選擇-----------------------------------------------------------------------------------#
     elif user_input in [
-        "'Brunch'",
-        "'Desserts','Drinks'",
-        "'American','International'",
-        "'J&K'",
-        "'TW'",
-        "'Vegetarian'",
-        "random100m",
-        "random500m",
-        "random1000m",
+        "Brunch",
+        "Desserts",
+        "Drinks",
+        "American",
+        "International",
+        "J&K",
+        "TW",
+        "Vegetarian",
+        "none",
     ]:
         user_choices[user_id].append(user_input)
-        buttons_template_price = ButtonsTemplate(
-            title=user_input,
-            text="請選擇價格範圍",
-            actions=[
-                MessageAction(label="100元", text="100"),
-                MessageAction(label="200元", text="200"),
-                MessageAction(label="不指定", text="pNone"),
-            ],
+        # --------------------------------------------------------------------------------------------#
+        buttons_template = CarouselTemplate(
+            columns=[
+                CarouselColumn(
+                    thumbnail_image_url=what_food_url,
+                    title="價格選擇",
+                    text="請選擇價格範圍",
+                    actions=[
+                        MessageAction(label="0~50元", text="0~50"),
+                        MessageAction(label="50~100元", text="50~100"),
+                        MessageAction(label="100~150元", text="100~150"),
+                    ],
+                ),
+                CarouselColumn(
+                    thumbnail_image_url=western_food_url,
+                    title="價格選擇",
+                    text="請選擇價格範圍",
+                    actions=[
+                        MessageAction(label="150~200元", text="150~200"),
+                        MessageAction(label="200~300元", text="200~300"),
+                        MessageAction(label="300元以上", text="300up"),
+                    ],
+                ),
+            ]
         )
         template_message_price = TemplateSendMessage(
-            alt_text="價格選擇", template=buttons_template_price
+            alt_text="價格選擇", template=buttons_template
         )
         line_bot_api.reply_message(event.reply_token, template_message_price)
-    elif user_input in ["100", "200", "pNone"]:
+        # --------------------------------------------------------------------------------------------#
+    elif user_input in [
+        "0~50",
+        "50~100",
+        "100~150",
+        "150~200",
+        "200~300",
+        "300up",
+    ]:
         user_choices[user_id].append(user_input)
         buttons_template_feature = ButtonsTemplate(
             title="特色選擇",
             text="請選擇特色",
             actions=[
-                MessageAction(label="CP高", text="high_cp"),
-                MessageAction(label="乾淨", text="clean"),
-                MessageAction(label="不選擇", text="tNone"),
+                MessageAction(label="服務", text="服務"),
+                MessageAction(label="環境", text="環境"),
+                MessageAction(label="美味", text="美味"),
             ],
         )
         template_message_feature = TemplateSendMessage(
             alt_text="特色選擇", template=buttons_template_feature
         )
         line_bot_api.reply_message(event.reply_token, template_message_feature)
-    elif user_input in ["high_cp", "clean", "tNone"]:
+    elif user_input in [
+        "服務",
+        "環境",
+        "美味",
+    ]:
         user_choices[user_id].append(user_input)
 
         # 在這裡處理使用者的選擇
-        if len(user_choices[user_id]) == 3:
-            type = user_choices[user_id][0]
-            price = user_choices[user_id][1]
-            feature = user_choices[user_id][2]
+        if len(user_choices[user_id]) == 4:
+            distance = user_choices[user_id][0]
+            type = user_choices[user_id][1]
+            price = user_choices[user_id][2]
+            sort = user_choices[user_id][3]
             # 在這裡添加基於 category、price 和 feature 的邏輯處理
             # 例如：回應相關的餐點資訊或執行查詢等操作
 
-            reply_message = f"您選擇了類別：{type}，價格：{price}，特色：{feature}，座標:{user_coordinate}。正在處理您的請求..."
+            reply_message = (
+                f"您選擇了類別：{type}，價格：{price}，特色：{sort}，座標:{user_coordinate}。正在處理您的請求..."
+            )
             # re_msg = f"您選擇了類別：{type}，價格：{price}，特色：{feature}，座標:{user_coordinate}。正在處理您的請求..."
             food_query_dict = {
                 "type": type,
                 "price": price,
-                "feature": feature,
+                "sort": sort,
+                "distance": distance,
                 "user_coordinate": user_coordinate,
             }
-            sql_query = StoreQueryBuild(food_query_dict)
+            sql_query = FoodQueryBuild(food_query_dict)
             print(sql_query)
             result = SqlQuery(sql_query)
-
+            # result = food_name,price,address,distance
             # 印出結果
             reply_arr = []
             choice_buttons_text = []
             for row in result:
-                name_and_distance = row[0]
-                distance = row[1]
-                cleaned_name = name_and_distance.split("(")[0].strip()
+                food_name = row[0]
+                price = row[1]
+                address = row[2]
+                pic_id = row[3]
+                restaurant_name = row[4]
+                distance = row[5]
                 cleaned_distance = f"{int(distance)} 公尺"
-                # 限制名稱長度為 20 個字元
-                if len(cleaned_name) + len(cleaned_distance) > 20:
-                    cleaned_name_max = 18 - len(cleaned_distance)  # len(,) =2
-                    cleaned_name = cleaned_name[:cleaned_name_max]
-                row = f"{cleaned_name}, {cleaned_distance}"
-                choice_buttons_text.append(row)
-
-                reply_arr.append(TextSendMessage(f"{row}"))
-
-            reply_message = reply_arr
-            print(choice_buttons_text)
+                # 創建字典，將資訊加入其中
+                item_dict = {
+                    "restaurant_name": restaurant_name,
+                    "food_name": food_name,
+                    "price": price,
+                    "address": address,
+                    "distance": cleaned_distance,
+                    "pic_id": pic_id,
+                }
+                choice_buttons_text.append(item_dict)
         else:
             reply_message = "發生錯誤：無法識別的選擇序列。"
-
-        actions = []
-        reply_restaurant = []
+        print(choice_buttons_text)
         # --------------------------------------------------------------------------------------------#
-
+        reply_restaurant = []
         template_columns = []
-
-        for text in choice_buttons_text:
-            restaurant_name = text.split(", ")[0]
-            restaurant_distance = text.split(", ")[1]
+        for sub_list in choice_buttons_text:
+            restaurant_name = sub_list["restaurant_name"]
+            food_name = sub_list["food_name"]
+            food_price = sub_list["price"]
+            restaurant_address = sub_list["address"]
+            restaurant_distance = sub_list["distance"]
+            pic_id = sub_list["pic_id"]
+            pic_url = "https://linebotblob.blob.core.windows.net/food-image/" + pic_id
             reply_restaurant.append(restaurant_name)
-            store_choice_info.append(restaurant_name + ",food_name")
+            store_choice_commit.append(restaurant_name + ",commit")
+            store_choice_address.append(restaurant_name + ",restaurant_address")
             store_choice_info.append(restaurant_name + ",commit")
-            store_choice_info.append(restaurant_name + ",address")
+            # google_maps_link = generate_google_maps_link(restaurant_address)
+            # print(google_maps_link)
             template_columns.append(
                 CarouselColumn(
-                    title=restaurant_name,
-                    text=restaurant_distance,
+                    thumbnail_image_url=pic_url,
+                    title=food_name,
+                    text=str(food_price)[:-2]
+                    + "元"
+                    + "\n"
+                    + restaurant_name
+                    + "\n"
+                    + restaurant_address
+                    + "\n"
+                    + restaurant_distance,
                     actions=[
-                        MessageAction(label="菜單", text=f"{restaurant_name},food_name"),
-                        MessageAction(label="店家評論", text=f"{restaurant_name},commit"),
-                        MessageAction(label="位置", text=f"{restaurant_name},address"),
+                        MessageAction(label="看看店家評價", text=f"{restaurant_name},commit"),
+                        MessageAction(
+                            label="GOOGLE MAP",
+                            text=restaurant_name + "," + restaurant_address,
+                        ),
+                        MessageAction(label="重新查詢", text="餐點查詢"),
                     ],
                 )
             )
-        print(store_choice_info)
         # 如果 choice_buttons_text 為空，加入 "無餐廳" 的 MessageAction
         if not template_columns:
             template_columns.append(
@@ -297,6 +379,8 @@ def handle_message(event):
             alt_text="餐廳選擇", template=buttons_template
         )
         line_bot_api.reply_message(event.reply_token, template_message)
+        # --------------------------------------------------------------------------------------------#
+
         # --------------------------------------------------------------------------------------------#
     elif user_input in store_choice_info:
         restaurant_name = user_input.split(",")[0]
@@ -316,30 +400,11 @@ def handle_message(event):
             # 移除空白
             result_info = " ".join(result_info.split())
             print(len(result_info))
-            # ask_msg = f"hi ai:以下是'{restaurant_name}'店家評價，請整合評價內容來'簡單介紹'店家，請使用150個字內的中文，評價='{result_info }'"
-            ask_msg = f"hi ai:'店名:{restaurant_name}',店家評價:{result_info}'"
+            # ask_msg = f"hi ai:以下是{restaurant_name}店家評價，請整合評價內容來簡單介紹店家，請使用150個字內的中文，評價={result_info }"
+            ask_msg = f"hi ai:店名:{restaurant_name},店家評價:{result_info}"
             reply_msg = ChatGptCommitQuery(ask_msg)
             text_message = TextSendMessage(text=reply_msg)
-        elif store_info == "address":
-            # ----------------------------------------------------------
-            sql_query = StoreInfoQueryBuild(store_query_dict)
-            print(sql_query)
-            result = SqlQuery(sql_query)
-            for row in result:
-                result_info = row[0]
-            # ----------------------------------------------------------
-            text_message = TextSendMessage(text=result_info)
-        elif store_info == "food_name":
-            # ----------------------------------------------------------
-            sql_query = StoreFoodNameQueryBuild(store_query_dict)
-            print(sql_query)
-            result = SqlQuery(sql_query)
-            print(result)
-            for row in result:
-                result_info.append(row[0])
-            print(result_info)
-            # ----------------------------------------------------------
-            text_message = TextSendMessage(text=str(result_info))
+
         line_bot_api.reply_message(event.reply_token, text_message)
         # 處理完畢後，清空使用者的選項
         user_choices[user_id] = []
@@ -351,6 +416,9 @@ def handle_message(event):
     # -----------------------------------------------------------------------------------------------------------
     # ---價格分析-------------------------------------------------------------------------------------------------
     elif user_input == "價格分析":
+        user_choices[user_id] = []
+        user_choices[user_id].append("analyze")
+
         buttons_template_feature = ButtonsTemplate(
             title="價格分析",
             text="上傳照片",
@@ -363,7 +431,281 @@ def handle_message(event):
             alt_text="價格分析", template=buttons_template_feature
         )
         line_bot_api.reply_message(event.reply_token, template_message_feature)
+    elif event_type == "image":
+        print(
+            user_choices[user_id],
+            "41564564564564654564564564545464462222222222222222222222222222222222222222222222222222222222645467866456",
+        )
+        message_id = event.message.id
+        message_content = line_bot_api.get_message_content(message_id)
 
+        upload_image_to_azure_blob(message_id + ".jpg", message_content.content)
+        # ImagePredictor(模型位置, 圖片網址)
+        predictor = ImagePredictor(
+            r"./CNN-ResNet-DenseNet-01_best_model.h5",
+            r"https://linebotblob.blob.core.windows.net/upload-image",
+        )
+
+        pic_url = (
+            f"https://linebotblob.blob.core.windows.net/upload-image/{message_id}.jpg"
+        )
+        # 圖片預測
+        # predictor.predict_image('圖片名稱')
+        result = predictor.predict_image(f"{message_id}.jpg")
+        user_choices[user_id].append(result)
+        buttons_template_feature = ButtonsTemplate(
+            thumbnail_image_url=pic_url,
+            title="預測結果",
+            text=result + "元",
+            actions=[
+                MessageAction(label="查詢類似餐點", text="查詢類似餐點"),
+                MessageAction(label="再分析一次", text="價格分析"),
+            ],
+        )
+        template_message_feature = TemplateSendMessage(
+            alt_text="CHAT", template=buttons_template_feature
+        )
+        line_bot_api.reply_message(event.reply_token, template_message_feature)
+    elif user_input == "查詢類似餐點":
+        # ---位置-----------------------------------------------------------------------------------------#
+        buttons_template_feature = ButtonsTemplate(
+            title="目前位置",
+            text="選擇地點",
+            actions=[
+                MessageAction(label="不選擇位置m", text="不選擇位置m"),
+                URIAction(label="位置", uri="https://line.me/R/nv/location/"),
+            ],
+        )
+        template_message_feature = TemplateSendMessage(
+            alt_text="價格分析", template=buttons_template_feature
+        )
+        line_bot_api.reply_message(event.reply_token, template_message_feature)
+        # --位置end------------------------------------------------------------------------------------------#
+        # --距離------------------------------------------------------------------------------------------#
+    elif user_input == "不選擇位置m" or event_type == "location":
+        if user_input == "不選擇位置m":
+            user_coordinate = UserCoordinate()
+
+        buttons_template = CarouselTemplate(
+            columns=[
+                CarouselColumn(
+                    thumbnail_image_url=what_food_url,
+                    title="餐廳距離",
+                    text="請選擇距離",
+                    actions=[
+                        MessageAction(label="500m", text="500m"),
+                        MessageAction(label="1000m", text="1000m"),
+                        MessageAction(label="2000m", text="2000m"),
+                    ],
+                ),
+            ]
+        )
+        template_message = TemplateSendMessage(
+            alt_text="location", template=buttons_template
+        )
+        line_bot_api.reply_message(event.reply_token, template_message)
+        # ---距離end-----------------------------------------------------------------------------------------#
+    elif user_input in [
+        "500m",
+        "1000m",
+        "2000m",
+    ]:
+        user_choices[user_id].append(user_input)
+
+        buttons_template = CarouselTemplate(
+            columns=[
+                CarouselColumn(
+                    thumbnail_image_url=what_food_url,
+                    title="類別選擇",
+                    text="請選擇類別",
+                    actions=[
+                        MessageAction(label="台式", text="TW"),
+                        MessageAction(label="日韓", text="J&K"),
+                        MessageAction(label="美式", text="American"),
+                    ],
+                ),
+                CarouselColumn(
+                    thumbnail_image_url=western_food_url,
+                    title="類別選擇",
+                    text="請選擇餐點類別",
+                    actions=[
+                        MessageAction(label="西式", text="International"),
+                        MessageAction(label="早午餐", text="Brunch"),
+                        MessageAction(label="素食", text="Vegetarian"),
+                    ],
+                ),
+                CarouselColumn(
+                    thumbnail_image_url=western_food_url,
+                    title="類別選擇",
+                    text="請選擇餐點類別",
+                    actions=[
+                        MessageAction(label="點心", text="Desserts"),
+                        MessageAction(label="飲料", text="Drinks"),
+                        MessageAction(label="不選擇", text="none"),
+                    ],
+                ),
+            ]
+        )
+        template_message = TemplateSendMessage(
+            alt_text="餐點選擇", template=buttons_template
+        )
+        line_bot_api.reply_message(event.reply_token, template_message)
+    elif user_input in [
+        "Brunch",
+        "Desserts",
+        "Drinks",
+        "American",
+        "International",
+        "J&K",
+        "TW",
+        "Vegetarian",
+        "none",
+    ]:
+        user_choices[user_id].append(user_input)
+
+        buttons_template_feature = ButtonsTemplate(
+            title="特色選擇",
+            text="請選擇特色",
+            actions=[
+                MessageAction(label="服務", text="服務"),
+                MessageAction(label="環境", text="環境"),
+                MessageAction(label="美味", text="美味"),
+            ],
+        )
+        template_message_feature = TemplateSendMessage(
+            alt_text="特色選擇", template=buttons_template_feature
+        )
+        line_bot_api.reply_message(event.reply_token, template_message_feature)
+    elif user_input in ["服務", "環境", "美味"]:
+        user_choices[user_id].append(user_input)
+
+        # 在這裡處理使用者的選擇
+        print(user_choices[user_id])
+        if len(user_choices[user_id]) == 5:
+            price = user_choices[user_id][1]
+            distance = user_choices[user_id][2]
+            type = user_choices[user_id][3]
+            sort = user_choices[user_id][4]
+
+            food_query_dict = {
+                "type": type,
+                "price": price,
+                "sort": sort,
+                "distance": distance,
+                "user_coordinate": user_coordinate,
+            }
+            sql_query = FoodQueryBuild(food_query_dict)
+            print(sql_query)
+            result = SqlQuery(sql_query)
+            # result = food_name,price,address,distance
+            # 印出結果
+            reply_arr = []
+            choice_buttons_text = []
+            for row in result:
+                food_name = row[0]
+                price = row[1]
+                address = row[2]
+                pic_id = row[3]
+                restaurant_name = row[4]
+                distance = row[5]
+                cleaned_distance = f"{int(distance)} 公尺"
+                # 創建字典，將資訊加入其中
+                item_dict = {
+                    "restaurant_name": restaurant_name,
+                    "food_name": food_name,
+                    "price": price,
+                    "address": address,
+                    "distance": cleaned_distance,
+                    "pic_id": pic_id,
+                }
+                choice_buttons_text.append(item_dict)
+        else:
+            reply_message = "發生錯誤：無法識別的選擇序列。"
+        print(choice_buttons_text)
+        # --------------------------------------------------------------------------------------------#
+        reply_restaurant = []
+        template_columns = []
+        for sub_list in choice_buttons_text:
+            restaurant_name = sub_list["restaurant_name"]
+            food_name = sub_list["food_name"]
+            food_price = sub_list["price"]
+            restaurant_address = sub_list["address"]
+            restaurant_distance = sub_list["distance"]
+            pic_id = sub_list["pic_id"]
+            pic_url = "https://linebotblob.blob.core.windows.net/food-image/" + pic_id
+            reply_restaurant.append(restaurant_name)
+            store_choice_commit.append(restaurant_name + ",commit")
+            store_choice_address.append(restaurant_name + ",restaurant_address")
+            store_choice_info.append(restaurant_name + ",commit")
+
+            # google_maps_link = generate_google_maps_link(restaurant_address)
+            # print(google_maps_link)
+            template_columns.append(
+                CarouselColumn(
+                    thumbnail_image_url=pic_url,
+                    title=food_name,
+                    text=str(food_price)[:-2]
+                    + "元"
+                    + "\n"
+                    + restaurant_name
+                    + "\n"
+                    + restaurant_address
+                    + "\n"
+                    + restaurant_distance,
+                    actions=[
+                        MessageAction(label="看看店家評價", text=f"{restaurant_name},commit"),
+                        MessageAction(
+                            label="GOOGLE MAP",
+                            text=restaurant_name + "," + restaurant_address,
+                        ),
+                        MessageAction(label="重新查詢", text="餐點查詢"),
+                    ],
+                )
+            )
+        # 如果 choice_buttons_text 為空，加入 "無餐廳" 的 MessageAction
+        if not template_columns:
+            template_columns.append(
+                CarouselColumn(
+                    title="無餐廳",
+                    text="無餐廳",
+                    actions=[MessageAction(label="重新查詢", text="餐點查詢")],
+                )
+            )
+        buttons_template = CarouselTemplate(columns=template_columns)
+        template_message = TemplateSendMessage(
+            alt_text="餐廳選擇", template=buttons_template
+        )
+        line_bot_api.reply_message(event.reply_token, template_message)
+        # --------------------------------------------------------------------------------------------#
+
+        # --------------------------------------------------------------------------------------------#
+    elif user_input in store_choice_info:
+        restaurant_name = user_input.split(",")[0]
+        store_info = user_input.split(",")[1]
+        store_query_dict = {"name": restaurant_name, "info": store_info}
+        result_info = []
+        if store_info == "commit":
+            # ----------------------------------------------------------
+            sql_query = StoreInfoQueryBuild(store_query_dict)
+            print(sql_query)
+            result = SqlQuery(sql_query)
+            for row in result:
+                result_info = row[0]
+            # ----------------------------------------------------------
+            # 移除換行符號
+            result_info = result_info.replace("\n", "")
+            # 移除空白
+            result_info = " ".join(result_info.split())
+            print(len(result_info))
+            # ask_msg = f"hi ai:以下是{restaurant_name}店家評價，請整合評價內容來簡單介紹店家，請使用150個字內的中文，評價={result_info }"
+            ask_msg = f"hi ai:店名:{restaurant_name},店家評價:{result_info}"
+            reply_msg = ChatGptCommitQuery(ask_msg)
+            text_message = TextSendMessage(text=reply_msg)
+
+        line_bot_api.reply_message(event.reply_token, text_message)
+        # 處理完畢後，清空使用者的選項
+        user_choices[user_id] = []
+        # --------------------------------------------------------------------------------------------#
     # ---價格分析-------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------
     # ************************************************************************************************************************
