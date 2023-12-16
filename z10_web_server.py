@@ -336,7 +336,8 @@ def handle_message(event):
             restaurant_address = sub_list["address"]
             restaurant_distance = sub_list["distance"]
             pic_id = sub_list["pic_id"]
-            pic_url = "https://linebotblob.blob.core.windows.net/food-image/" + pic_id
+            pic_url = f"https://linebotblob.blob.core.windows.net/food-image/{pic_id}"
+            print(pic_url)
             reply_restaurant.append(restaurant_name)
             store_choice_commit.append(restaurant_name + ",commit")
             store_choice_address.append(restaurant_name + ",restaurant_address")
@@ -432,10 +433,6 @@ def handle_message(event):
         )
         line_bot_api.reply_message(event.reply_token, template_message_feature)
     elif event_type == "image":
-        print(
-            user_choices[user_id],
-            "41564564564564654564564564545464462222222222222222222222222222222222222222222222222222222222645467866456",
-        )
         message_id = event.message.id
         message_content = line_bot_api.get_message_content(message_id)
 
