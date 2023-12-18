@@ -55,6 +55,7 @@ def FoodQueryBuild(food_query_dict):
     print(f"distance={distance}")
 
     # 建立 SQL 查詢字串
+
     sql_query = f"""
         SELECT TOP 10
             sd.food_name,
@@ -64,7 +65,7 @@ def FoodQueryBuild(food_query_dict):
             gc.name,
             GEOGRAPHY::Point(sd.latitude, sd.longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
         FROM (
-            SELECT TOP 100 PERCENT -- 是一種用於指定返回所有行的方法
+            SELECT TOP 100 PERCENT
                 ID,
                 food_name,
                 price,
@@ -84,7 +85,62 @@ def FoodQueryBuild(food_query_dict):
             ORDER BY NEWID() -- 隨機排序
         ) sd
         LEFT JOIN google_commit gc ON sd.ID = gc.ID
-        ORDER BY distance; -- 以 distance 排序
+        ORDER BY gc.name; -- 使用 name 進行排序
+        """
+
+    # sql_query = f"""
+    #     SELECT TOP 10
+    #         sd.food_name,
+    #         sd.price,
+    #         sd.address,
+    #         sd.pic_id,
+    #         gc.name,
+    #         GEOGRAPHY::Point(sd.latitude, sd.longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
+    #     FROM (
+    #         SELECT TOP 100 PERCENT -- 是一種用於指定返回所有行的方法
+    #             ID,
+    #             food_name,
+    #             price,
+    #             address,
+    #             pic_id,
+    #             latitude,
+    #             longitude
+    #         FROM store_data
+    #         WHERE
+    #             latitude IS NOT NULL AND
+    #             sort IS NOT NULL AND
+    #             GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
+    #             (type = ({type}) OR ({type}) IS NULL) AND
+    #             (price >= {price_lower} OR {price_lower} IS NULL) AND
+    #             (price <= {price_upper} OR {price_upper} IS NULL) AND
+    #             sort = {sort}
+    #         ORDER BY NEWID() -- 隨機排序
+    #     ) sd
+    #     LEFT JOIN google_commit gc ON sd.ID = gc.ID
+    #     ORDER BY food_name; -- 以 distance 排序
+    #     """
+
+    return sql_query
+
+
+def RandomFood():
+    sql_query = f"""
+        SELECT TOP 1
+            sd.food_name,
+            sd.price,
+            sd.address,
+            sd.pic_id,
+            gc.name,
+            sd.type,
+            sd.sort
+        FROM store_data sd
+        INNER JOIN google_commit gc ON sd.ID = gc.ID
+        WHERE
+            sd.latitude IS NOT NULL AND
+            sd.sort IS NOT NULL AND
+            sd.sort <> 'none' AND
+            (gc.name IS NOT NULL AND gc.name <> 'none')
+        ORDER BY NEWID();
         """
 
     return sql_query

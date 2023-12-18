@@ -28,15 +28,15 @@ class ImagePredictor:
         # 解析預測結果，返回對應的價格範圍
         predicted_class = np.argmax(prediction)
         if predicted_class == 0:
-            return "0-50"
+            return "0~50"
         elif predicted_class == 1:
-            return "50-100"
+            return "50~100"
         elif predicted_class == 2:
-            return "100-150"
+            return "100~150"
         elif predicted_class == 3:
-            return "150-200"
+            return "150~200"
         elif predicted_class == 4:
-            return "200-300"
+            return "200~300"
         else:  # 假設為類別 5
             return "300up"
 

@@ -43,7 +43,8 @@ def ChatGptCommitQuery(msg):
                 model="text-davinci-003",
                 # 將第六個字元之後的訊息發送給 OpenAI
                 # prompt=msg[6:],
-                prompt=msg + "\n以上是店家的評價,請整合評價，使用150字簡單介紹店家優點。",
+                prompt=msg
+                + "\n以上是店家的評價,請整合評價,使用150字簡單介紹店家優點,並用評論內容給1~5顆星,用星星符號表示,顯示'推薦度='幾顆星。",
                 max_tokens=500,
                 temperature=0.8,
                 frequency_penalty=0.5,
