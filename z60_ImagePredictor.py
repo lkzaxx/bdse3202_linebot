@@ -16,7 +16,17 @@ class ImagePredictor:
         response = requests.get(image_url)
         image_array = cv2.imdecode(np.frombuffer(response.content, np.uint8), -1)
         image = cv2.resize(image_array, (224, 224))
-
+        # Draw Black Rectangles
+        cv2.rectangle(
+            image, (0, 0), (224, 29), (0, 0, 0), -1
+        )  # Top horizontal rectangle
+        cv2.rectangle(
+            image, (0, 53), (224, 69), (0, 0, 0), -1
+        )  # Middle top horizontal rectangle
+        # Middle bottom horizontal rectangle
+        cv2.rectangle(image, (0, 154), (224, 170), (0, 0, 0), -1)
+        # Bottom horizontal rectangle
+        cv2.rectangle(image, (0, 193), (224, 224), (0, 0, 0), -1)
         # 壓縮特徵
         image = image.astype("float32")
         image /= 255.0
