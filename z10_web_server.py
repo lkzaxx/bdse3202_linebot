@@ -23,6 +23,7 @@ from z30_user_location import UserCoordinate
 from z40_chatgpt import ChatGptCommitQuery, ChatGptQuery
 from z50_upload_image_azure_blob import upload_image_to_azure_blob
 from z60_ImagePredictor import ImagePredictor
+from z70_googlemap import get_directions
 
 chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
 japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
@@ -40,6 +41,7 @@ config.read("config.ini")
 line_bot_api = LineBotApi(config.get("line-bot", "channel_access_token"))
 handler = WebhookHandler(config.get("line-bot", "channel_secret"))
 store_choice_info = []
+store_choice_map = []
 store_choice_commit = []
 store_choice_address = []
 user_id = "none"
@@ -85,6 +87,8 @@ def handle_message(event):
     global user_coordinate
     global template_message
     global store_choice_info
+    global store_choice_map
+    global template_columns
     user_id = event.source.user_id
     event_type = event.message.type
 
@@ -132,10 +136,8 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, template_message_feature)
         # --位置end------------------------------------------------------------------------------------------#
         # --距離------------------------------------------------------------------------------------------#
-    elif (
-        user_choices[user_id][0] == "search"
-        and user_input == "不選擇位置"
-        or event_type == "location"
+    elif user_choices[user_id][0] == "search" and (
+        user_input == "不選擇位置" or event_type == "location"
     ):
         if user_input == "不選擇位置":
             user_coordinate = UserCoordinate()
@@ -258,7 +260,7 @@ def handle_message(event):
         user_choices[user_id].append(user_input)
         buttons_template_feature = ButtonsTemplate(
             title="特色選擇",
-            text="請選擇特色",
+            text="請選擇特色\n選完特色後將查詢餐點\n請稍待約10秒",
             actions=[
                 MessageAction(label="服務", text="服務"),
                 MessageAction(label="環境", text="環境"),
@@ -268,6 +270,7 @@ def handle_message(event):
         template_message_feature = TemplateSendMessage(
             alt_text="特色選擇", template=buttons_template_feature
         )
+
         line_bot_api.reply_message(event.reply_token, template_message_feature)
     elif user_choices[user_id][0] == "search" and user_input in [
         "服務",
@@ -323,11 +326,12 @@ def handle_message(event):
                 choice_buttons_text.append(item_dict)
         else:
             reply_message = "發生錯誤：無法識別的選擇序列。"
-        print(choice_buttons_text)
         # --------------------------------------------------------------------------------------------#
         reply_restaurant = []
         template_columns = []
         store_choice_info = []
+        store_choice_map = []
+
         for sub_list in choice_buttons_text:
             restaurant_name = sub_list["restaurant_name"]
             food_name = sub_list["food_name"]
@@ -336,13 +340,15 @@ def handle_message(event):
             restaurant_distance = sub_list["distance"]
             pic_id = sub_list["pic_id"]
             pic_url = f"https://linebotblob.blob.core.windows.net/food-image/{pic_id}"
-            print(pic_url)
             reply_restaurant.append(restaurant_name)
             store_choice_commit.append(restaurant_name + ",commit")
             store_choice_address.append(restaurant_name + ",restaurant_address")
-            store_choice_info.append(restaurant_name + ",commit")
-            # google_maps_link = generate_google_maps_link(restaurant_address)
-            # print(google_maps_link)
+            store_choice_info.append(restaurant_name + ",commit," + restaurant_address)
+            store_choice_map.append(restaurant_address)
+            google_coordinate = tuple(map(float, user_coordinate.split(",")))
+            directions_url = get_directions(
+                google_coordinate, f"{restaurant_name},{restaurant_address}"
+            )
             template_columns.append(
                 CarouselColumn(
                     thumbnail_image_url=pic_url,
@@ -356,11 +362,15 @@ def handle_message(event):
                     + "\n"
                     + restaurant_distance,
                     actions=[
-                        MessageAction(label="看看店家評價", text=f"{restaurant_name},commit"),
                         MessageAction(
-                            label="GOOGLE MAP",
-                            text=restaurant_name + "," + restaurant_address,
+                            label="看看店家評價",
+                            text=f"{restaurant_name},commit,{restaurant_address}",
                         ),
+                        URIAction(label="GOOGLE MAP", uri=directions_url),
+                        # MessageAction(
+                        #     label="GOOGLE MAP",
+                        #     text=restaurant_address,
+                        # ),
                         MessageAction(label="重新查詢", text="餐點查詢"),
                     ],
                 )
@@ -385,6 +395,7 @@ def handle_message(event):
     elif user_choices[user_id][0] == "search" and user_input in store_choice_info:
         restaurant_name = user_input.split(",")[0]
         store_info = user_input.split(",")[1]
+        restaurant_address = user_input.split(",")[2]
         store_query_dict = {"name": restaurant_name, "info": store_info}
         result_info = []
         if store_info == "commit":
@@ -400,14 +411,31 @@ def handle_message(event):
             # 移除空白
             result_info = " ".join(result_info.split())
             print(len(result_info))
-            # ask_msg = f"hi ai:以下是{restaurant_name}店家評價，請整合評價內容來簡單介紹店家，請使用150個字內的中文，評價={result_info }"
-            ask_msg = f"hi ai:店名:{restaurant_name},店家評價:{result_info}"
+            ask_msg = (
+                f"hi ai:店名:{restaurant_name},地址:{restaurant_address},店家評價:{result_info}"
+            )
             reply_msg = ChatGptCommitQuery(ask_msg)
             text_message = TextSendMessage(text=reply_msg)
 
         line_bot_api.reply_message(event.reply_token, text_message)
-        # 處理完畢後，清空使用者的選項
-        user_choices[user_id] = []
+        # # 處理完畢後，清空使用者的選項
+        # user_choices[user_id] = []
+    # elif user_choices[user_id][0] == "search" and user_input in store_choice_map:
+    #     restaurant_address = user_input
+    #     google_coordinate = tuple(map(float, user_coordinate.split(",")))
+    #     directions_url = get_directions(google_coordinate, restaurant_address)
+    #     print(directions_url)
+    #     buttons_template_feature = ButtonsTemplate(
+    #         title="餐廳地址",
+    #         text="地圖導航",
+    #         actions=[
+    #             URIAction(label="相機拍攝照片", uri=f"{directions_url}"),
+    #         ],
+    #     )
+    #     template_message_feature = TemplateSendMessage(
+    #         alt_text="map", template=buttons_template_feature
+    #     )
+    #     line_bot_api.reply_message(event.reply_token, template_message_feature)
     # ---餐點查詢-------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------
     # ************************************************************************************************************************
@@ -478,10 +506,8 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, template_message_feature)
         # --位置end------------------------------------------------------------------------------------------#
         # --距離------------------------------------------------------------------------------------------#
-    elif (
-        user_choices[user_id][0] == "analyze"
-        and user_input == "不選擇位置"
-        or event_type == "location"
+    elif user_choices[user_id][0] == "analyze" and (
+        user_input == "不選擇位置" or event_type == "location"
     ):
         if user_input == "不選擇位置":
             user_coordinate = UserCoordinate()
@@ -565,7 +591,7 @@ def handle_message(event):
 
         buttons_template_feature = ButtonsTemplate(
             title="特色選擇",
-            text="請選擇特色",
+            text="請選擇特色\n選完特色後將查詢餐點\n請稍待約10秒",
             actions=[
                 MessageAction(label="服務", text="服務"),
                 MessageAction(label="環境", text="環境"),
@@ -637,10 +663,11 @@ def handle_message(event):
             reply_restaurant.append(restaurant_name)
             store_choice_commit.append(restaurant_name + ",commit")
             store_choice_address.append(restaurant_name + ",restaurant_address")
-            store_choice_info.append(restaurant_name + ",commit")
-
-            # google_maps_link = generate_google_maps_link(restaurant_address)
-            # print(google_maps_link)
+            store_choice_info.append(restaurant_name + ",commit," + restaurant_address)
+            google_coordinate = tuple(map(float, user_coordinate.split(",")))
+            directions_url = get_directions(
+                google_coordinate, f"{restaurant_name},{restaurant_address}"
+            )
             template_columns.append(
                 CarouselColumn(
                     thumbnail_image_url=pic_url,
@@ -654,11 +681,15 @@ def handle_message(event):
                     + "\n"
                     + restaurant_distance,
                     actions=[
-                        MessageAction(label="看看店家評價", text=f"{restaurant_name},commit"),
                         MessageAction(
-                            label="GOOGLE MAP",
-                            text=restaurant_name + "," + restaurant_address,
+                            label="看看店家評價",
+                            text=f"{restaurant_name},commit,{restaurant_address}",
                         ),
+                        URIAction(label="GOOGLE MAP", uri=directions_url),
+                        # MessageAction(
+                        #     label="GOOGLE MAP",
+                        #     text=restaurant_name + "," + restaurant_address,
+                        # ),
                         MessageAction(label="重新查詢", text="餐點查詢"),
                     ],
                 )
@@ -683,6 +714,7 @@ def handle_message(event):
     elif user_choices[user_id][0] == "analyze" and user_input in store_choice_info:
         restaurant_name = user_input.split(",")[0]
         store_info = user_input.split(",")[1]
+        restaurant_address = user_input.split(",")[2]
         store_query_dict = {"name": restaurant_name, "info": store_info}
         result_info = []
         if store_info == "commit":
@@ -698,14 +730,14 @@ def handle_message(event):
             # 移除空白
             result_info = " ".join(result_info.split())
             print(len(result_info))
-            # ask_msg = f"hi ai:以下是{restaurant_name}店家評價，請整合評價內容來簡單介紹店家，請使用150個字內的中文，評價={result_info }"
-            ask_msg = f"hi ai:店名:{restaurant_name},店家評價:{result_info}"
+            ask_msg = (
+                f"hi ai:店名:{restaurant_name},地址:{restaurant_address},店家評價:{result_info}"
+            )
             reply_msg = ChatGptCommitQuery(ask_msg)
             text_message = TextSendMessage(text=reply_msg)
 
         line_bot_api.reply_message(event.reply_token, text_message)
-        # 處理完畢後，清空使用者的選項
-        user_choices[user_id] = []
+
         # --------------------------------------------------------------------------------------------#
     # ---價格分析-------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------
@@ -808,10 +840,8 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, template_message_feature)
         # --位置end------------------------------------------------------------------------------------------#
         # --距離------------------------------------------------------------------------------------------#
-    elif (
-        user_choices[user_id][0] == "random"
-        and user_input == "不選擇位置"
-        or event_type == "location"
+    elif user_choices[user_id][0] == "random" and (
+        user_input == "不選擇位置" or event_type == "location"
     ):
         if user_input == "不選擇位置":
             user_coordinate = UserCoordinate()
@@ -821,7 +851,7 @@ def handle_message(event):
                 CarouselColumn(
                     thumbnail_image_url=what_food_url,
                     title="餐廳距離",
-                    text="請選擇距離",
+                    text="請選擇距離\n選完距離後將查詢餐點\n請稍待約10秒",
                     actions=[
                         MessageAction(label="500m", text="500m"),
                         MessageAction(label="1000m", text="1000m"),
@@ -901,10 +931,11 @@ def handle_message(event):
             reply_restaurant.append(restaurant_name)
             store_choice_commit.append(restaurant_name + ",commit")
             store_choice_address.append(restaurant_name + ",restaurant_address")
-            store_choice_info.append(restaurant_name + ",commit")
-
-            # google_maps_link = generate_google_maps_link(restaurant_address)
-            # print(google_maps_link)
+            store_choice_info.append(restaurant_name + ",commit," + restaurant_address)
+            google_coordinate = tuple(map(float, user_coordinate.split(",")))
+            directions_url = get_directions(
+                google_coordinate, f"{restaurant_name},{restaurant_address}"
+            )
             template_columns.append(
                 CarouselColumn(
                     thumbnail_image_url=pic_url,
@@ -918,11 +949,15 @@ def handle_message(event):
                     + "\n"
                     + restaurant_distance,
                     actions=[
-                        MessageAction(label="看看店家評價", text=f"{restaurant_name},commit"),
                         MessageAction(
-                            label="GOOGLE MAP",
-                            text=restaurant_name + "," + restaurant_address,
+                            label="看看店家評價",
+                            text=f"{restaurant_name},commit,{restaurant_address}",
                         ),
+                        URIAction(label="GOOGLE MAP", uri=directions_url),
+                        # MessageAction(
+                        #     label="GOOGLE MAP",
+                        #     text=restaurant_name + "," + restaurant_address,
+                        # ),
                         MessageAction(label="重新查詢", text="餐點查詢"),
                     ],
                 )
@@ -948,6 +983,7 @@ def handle_message(event):
     elif user_choices[user_id][0] == "random" and user_input in store_choice_info:
         restaurant_name = user_input.split(",")[0]
         store_info = user_input.split(",")[1]
+        restaurant_address = user_input.split(",")[2]
         store_query_dict = {"name": restaurant_name, "info": store_info}
         result_info = []
         if store_info == "commit":
@@ -963,14 +999,14 @@ def handle_message(event):
             # 移除空白
             result_info = " ".join(result_info.split())
             print(len(result_info))
-            # ask_msg = f"hi ai:以下是{restaurant_name}店家評價，請整合評價內容來簡單介紹店家，請使用150個字內的中文，評價={result_info }"
-            ask_msg = f"hi ai:店名:{restaurant_name},店家評價:{result_info}"
+            ask_msg = (
+                f"hi ai:店名:{restaurant_name},地址:{restaurant_address},店家評價:{result_info}"
+            )
             reply_msg = ChatGptCommitQuery(ask_msg)
             text_message = TextSendMessage(text=reply_msg)
 
         line_bot_api.reply_message(event.reply_token, text_message)
-        # 處理完畢後，清空使用者的選項
-        user_choices[user_id] = []
+
     # ************************************************************************************************************************
     # ************************************************************************************************************************
     # ************************************************************************************************************************

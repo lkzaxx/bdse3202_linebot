@@ -79,7 +79,7 @@ def FoodQueryBuild(food_query_dict):
                 sort IS NOT NULL AND
                 GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
                 (type = ({type}) OR ({type}) IS NULL) AND
-                (price >= {price_lower} OR {price_lower} IS NULL) AND 
+                (price >= {price_lower} OR {price_lower} IS NULL) AND
                 (price <= {price_upper} OR {price_upper} IS NULL) AND
                 sort = {sort}
             ORDER BY NEWID() -- 隨機排序
