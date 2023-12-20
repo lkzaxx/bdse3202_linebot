@@ -52,9 +52,9 @@ def FoodQueryBuild(food_query_dict):
         # 建立 SQL 查詢字串
         sql_query = f"""
             SELECT TOP 10
-                name,
+                food_name,
                 GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
-            FROM google_commit
+            FROM store_data
             WHERE
                 latitude IS NOT NULL AND
                 GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance}
@@ -66,7 +66,7 @@ def FoodQueryBuild(food_query_dict):
             SELECT TOP 10
                 name,
                 GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
-            FROM google_commit
+            FROM store_data
             WHERE
                 type IN ({type}) AND
                 latitude IS NOT NULL AND
