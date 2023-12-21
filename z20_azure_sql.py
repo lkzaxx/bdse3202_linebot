@@ -143,7 +143,7 @@ def FoodQueryBuild(food_query_dict):
                 (type = ({type}) OR ({type}) IS NULL) AND
                 (price >= {price_lower} OR {price_lower} IS NULL) AND
                 (price <= {price_upper} OR {price_upper} IS NULL) AND
-                sort = {sort} AND
+                (sort = {sort} OR {sort} = 'none') AND
                 (ID IN (SELECT ID FROM google_commit WHERE name IS NOT NULL AND name <> 'none'))
             ORDER BY NEWID() -- 隨機排序
         ), random_selection AS (
@@ -195,11 +195,26 @@ def RandomFood():
             sd.sort
         FROM store_data sd
         INNER JOIN google_commit gc ON sd.ID = gc.ID
-        WHERE            
-            sd.sort <> 'none' AND
+        WHERE              
             (gc.name IS NOT NULL AND gc.name <> 'none')
         ORDER BY NEWID();
         """
+    # sql_query = f"""
+    #     SELECT TOP 1
+    #         sd.food_name,
+    #         sd.price,
+    #         sd.address,
+    #         sd.pic_id,
+    #         gc.name,
+    #         sd.type,
+    #         sd.sort
+    #     FROM store_data sd
+    #     INNER JOIN google_commit gc ON sd.ID = gc.ID
+    #     WHERE
+    #         sd.sort <> 'none' AND
+    #         (gc.name IS NOT NULL AND gc.name <> 'none')
+    #     ORDER BY NEWID();
+    #     """
 
     return sql_query
 

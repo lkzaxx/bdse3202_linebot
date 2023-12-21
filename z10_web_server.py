@@ -377,7 +377,7 @@ def create_food_buttons_template(choice_buttons_text):
                 + restaurant_distance,
                 actions=[
                     MessageAction(
-                        label="看看店家評價",
+                        label="看看店家評價(稍等10秒)",
                         text=f"{restaurant_name},commit,{food_name}",
                     ),
                     URIAction(label="GOOGLE MAP", uri=directions_url),
