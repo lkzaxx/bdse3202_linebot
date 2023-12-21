@@ -1,6 +1,6 @@
 import re
 
-from Z21_sql_query import SqlQuery
+from z21_sql_query import SqlQuery
 
 """
 NULL
@@ -88,43 +88,30 @@ def FoodQueryBuild(food_query_dict):
     #     ORDER BY gc.name; -- 使用 name 進行排序
     #     """
 
-    sql_query = f"""
-
-        WITH sd AS (
-            
-            SELECT TOP 100 PERCENT
-                    ID,
-                    food_name,
-                    price,
-                    address,
-                    pic_id,
-                    latitude,
-                    longitude
-                FROM store_data
-                WHERE
-                    latitude IS NOT NULL AND
-                    sort IS NOT NULL AND
-                    GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
-                    (type = ({type}) OR ({type}) IS NULL) AND
-                    (price >= {price_lower} OR {price_lower} IS NULL) AND
-                    (price <= {price_upper} OR {price_upper} IS NULL) AND
-                    sort = {sort}
-                ORDER BY NEWID() -- 隨機排序
-
-        )
-        SELECT TOP 10
-            sd.food_name,
-            sd.price,
-            sd.address,
-            sd.pic_id,
-            gc.name,
-            GEOGRAPHY::Point(sd.latitude, sd.longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
-        FROM sd
-        LEFT JOIN google_commit gc ON sd.ID = gc.ID
-        ORDER BY gc.name; -- 使用 name 進行排序
-        """
-
     # sql_query = f"""
+
+    #     WITH sd AS (
+
+    #         SELECT TOP 100 PERCENT
+    #                 ID,
+    #                 food_name,
+    #                 price,
+    #                 address,
+    #                 pic_id,
+    #                 latitude,
+    #                 longitude
+    #             FROM store_data
+    #             WHERE
+    #                 latitude IS NOT NULL AND
+    #                 sort IS NOT NULL AND
+    #                 GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
+    #                 (type = ({type}) OR ({type}) IS NULL) AND
+    #                 (price >= {price_lower} OR {price_lower} IS NULL) AND
+    #                 (price <= {price_upper} OR {price_upper} IS NULL) AND
+    #                 sort = {sort}
+    #             ORDER BY NEWID() -- 隨機排序
+
+    #     )
     #     SELECT TOP 10
     #         sd.food_name,
     #         sd.price,
@@ -132,29 +119,66 @@ def FoodQueryBuild(food_query_dict):
     #         sd.pic_id,
     #         gc.name,
     #         GEOGRAPHY::Point(sd.latitude, sd.longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
-    #     FROM (
-    #         SELECT TOP 100 PERCENT -- 是一種用於指定返回所有行的方法
-    #             ID,
-    #             food_name,
-    #             price,
-    #             address,
-    #             pic_id,
-    #             latitude,
-    #             longitude
-    #         FROM store_data
-    #         WHERE
-    #             latitude IS NOT NULL AND
-    #             sort IS NOT NULL AND
-    #             GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
-    #             (type = ({type}) OR ({type}) IS NULL) AND
-    #             (price >= {price_lower} OR {price_lower} IS NULL) AND
-    #             (price <= {price_upper} OR {price_upper} IS NULL) AND
-    #             sort = {sort}
-    #         ORDER BY NEWID() -- 隨機排序
-    #     ) sd
+    #     FROM sd
     #     LEFT JOIN google_commit gc ON sd.ID = gc.ID
-    #     ORDER BY food_name; -- 以 distance 排序
+    #     ORDER BY gc.name; -- 使用 name 進行排序
     #     """
+
+    sql_query = f"""
+        WITH sd AS (
+            SELECT TOP 100 PERCENT
+                ID,
+                food_name,
+                price,
+                address,
+                pic_id,
+                latitude,
+                longitude,
+                GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
+            FROM store_data
+            WHERE
+                latitude IS NOT NULL AND
+                longitude IS NOT NULL AND
+                GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
+                (type = ({type}) OR ({type}) IS NULL) AND
+                (price >= {price_lower} OR {price_lower} IS NULL) AND
+                (price <= {price_upper} OR {price_upper} IS NULL) AND
+                sort = {sort} AND
+                (ID IN (SELECT ID FROM google_commit WHERE name IS NOT NULL AND name <> 'none'))
+            ORDER BY NEWID() -- 隨機排序
+        ), random_selection AS (
+            SELECT TOP 10
+                ID,
+                food_name,
+                price,
+                address,
+                pic_id,
+                latitude,
+                longitude,
+                GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) AS distance
+            FROM store_data
+            WHERE
+                latitude IS NOT NULL AND
+                longitude IS NOT NULL AND
+                GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
+                (type = ({type}) OR ({type}) IS NULL) AND
+                (price >= {price_lower} OR {price_lower} IS NULL) AND
+                (price <= {price_upper} OR {price_upper} IS NULL) AND
+                (ID IN (SELECT ID FROM google_commit WHERE name IS NOT NULL AND name <> 'none'))
+            ORDER BY NEWID()
+        )
+        SELECT TOP 10
+            COALESCE(sd.food_name, rs.food_name) AS food_name,
+            COALESCE(sd.price, rs.price) AS price,
+            COALESCE(sd.address, rs.address) AS address,
+            COALESCE(sd.pic_id, rs.pic_id) AS pic_id,
+            gc.name,
+            COALESCE(sd.distance, rs.distance) AS distance
+        FROM sd
+        FULL OUTER JOIN random_selection rs ON sd.ID = rs.ID
+        LEFT JOIN google_commit gc ON COALESCE(sd.ID, rs.ID) = gc.ID
+        ORDER BY gc.name; -- 使用 name 進行排序
+        """
 
     return sql_query
 

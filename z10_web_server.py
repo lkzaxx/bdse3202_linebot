@@ -26,7 +26,7 @@ from z20_azure_sql import (
     StoreFoodNameQueryBuild,
     StoreInfoQueryBuild,
 )
-from Z21_sql_query import SqlQuery
+from z21_sql_query import SqlQuery
 from z30_user_location import UserCoordinate
 from z40_chatgpt import ChatGptCommitQuery, ChatGptQuery
 from z50_upload_image_azure_blob import upload_image_to_azure_blob
@@ -217,7 +217,7 @@ def chatgpt_commit(user_input):
                         "contents": [
                             {
                                 "type": "text",
-                                "text": "推薦度",
+                                "text": "CHAT GPT推薦度",
                                 "flex": 0,
                                 "margin": "md",
                                 "size": "sm",
@@ -896,13 +896,13 @@ def handle_message(event):
             template_columns.append(
                 CarouselColumn(
                     thumbnail_image_url=pic_url,
-                    title=food_name,
+                    title=food_name[:20],
                     text=str(price)[:-2]
                     + "元"
                     + "\n"
-                    + restaurant_name
+                    + restaurant_name[:20]
                     + "\n"
-                    + restaurant_address,
+                    + restaurant_address[:25],
                     actions=[
                         MessageAction(label="再隨機一次", text="隨機餐點"),
                         MessageAction(label="查看類似餐點", text="查看類似餐點"),

@@ -14,7 +14,7 @@ from transformers import AutoTokenizer
 
 # model_name = "gpt-3.5-turbo-instruct"
 model_name = "text-davinci-003"
-max_tokens = 2500
+max_tokens = 3000
 encoding = tiktoken.encoding_for_model(model_name)
 
 
@@ -47,7 +47,7 @@ def ChatGptCommitQuery(msg):
                 # 將第六個字元之後的訊息發送給 OpenAI
                 # prompt=msg[6:],
                 prompt=msg
-                + "\n以上是店家的評價,請依餐點名稱來整合評價,並使用160字客觀介紹店家。\n回覆結尾加上 '推薦度='(用評論內容給1~5顆星,用★符號代表一顆星及☆符號代表無星)",
+                + "\n以上是店家的評價,請依餐點名稱來整合評價,並使用200字客觀介紹店家。\n回覆結尾加上 '推薦度='(用評論內容給1~5顆星,用★符號代表一顆星及☆符號代表無星)",
                 max_tokens=500,
                 temperature=0.8,
                 frequency_penalty=0.5,
