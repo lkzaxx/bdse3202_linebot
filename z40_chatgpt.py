@@ -14,11 +14,12 @@ from transformers import AutoTokenizer
 
 # model_name = "gpt-3.5-turbo-instruct"
 model_name = "text-davinci-003"
-max_tokens = 3000
+max_tokens = 2500
 encoding = tiktoken.encoding_for_model(model_name)
 
 
 def ChatGptCommitQuery(msg):
+    # 讀取API
     config = configparser.ConfigParser()
     config.read("../LINEBOT_API_KEY/openai_api.ini")
     key = config.get("openai", "key")
@@ -30,11 +31,11 @@ def ChatGptCommitQuery(msg):
         # 取出文字的前五個字元是 hi ai:
         if ai_msg == "hi ai:":
             msg = msg[6:]
-            print(len(encoding.encode(msg)))
+            print(f"減少token前={len(encoding.encode(msg))}")
             # 設定token上限
             if len(encoding.encode(msg)) > max_tokens:
                 msg_token = encoding.encode(msg)[:max_tokens]
-                print(f"token={len(msg_token)}")
+                print(f"減少token後={len(msg_token)}")
                 msg = encoding.decode(msg_token)
                 # msg = [encoding.decode_single_token_bytes(token) for token in msg_token]
             print(msg)
@@ -46,7 +47,7 @@ def ChatGptCommitQuery(msg):
                 # 將第六個字元之後的訊息發送給 OpenAI
                 # prompt=msg[6:],
                 prompt=msg
-                + "\n以上是店家的評價,請整合評價,使用150字簡單介紹店家優點。\n並用評論內容給1~5顆星,用★符號代表一顆星及☆符號代表無星。",
+                + "\n以上是店家的評價,請依餐點名稱來整合評價,並使用160字客觀介紹店家。\n回覆結尾加上 '推薦度='(用評論內容給1~5顆星,用★符號代表一顆星及☆符號代表無星)",
                 max_tokens=500,
                 temperature=0.8,
                 frequency_penalty=0.5,

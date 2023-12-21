@@ -1,4 +1,3 @@
-import configparser
 import re
 
 from Z21_sql_query import SqlQuery
@@ -172,9 +171,7 @@ def RandomFood():
             sd.sort
         FROM store_data sd
         INNER JOIN google_commit gc ON sd.ID = gc.ID
-        WHERE
-            sd.latitude IS NOT NULL AND
-            sd.sort IS NOT NULL AND
+        WHERE            
             sd.sort <> 'none' AND
             (gc.name IS NOT NULL AND gc.name <> 'none')
         ORDER BY NEWID();
