@@ -19,6 +19,9 @@ encoding = tiktoken.encoding_for_model(model_name)
 
 
 def ChatGptCommitQuery(msg):
+    config = configparser.ConfigParser()
+    config.read("../LINEBOT_API_KEY/openai_api.ini")
+    key = config.get("openai", "key")
     try:
         # 取出文字的前五個字元，轉換成小寫
         # 將第六個字元之後的訊息發送給 OpenAI
@@ -28,19 +31,15 @@ def ChatGptCommitQuery(msg):
         if ai_msg == "hi ai:":
             msg = msg[6:]
             print(len(encoding.encode(msg)))
+            # 設定token上限
             if len(encoding.encode(msg)) > max_tokens:
                 msg_token = encoding.encode(msg)[:max_tokens]
-                print(len(msg_token))
+                print(f"token={len(msg_token)}")
                 msg = encoding.decode(msg_token)
                 # msg = [encoding.decode_single_token_bytes(token) for token in msg_token]
             print(msg)
             # # 設定 OpenAI API 金鑰
-            client = OpenAI(
-                api_key="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"
-            )
-            # client = OpenAI(
-            #     api_key="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"
-            # )
+            client = OpenAI(api_key=key)
             response = client.completions.create(
                 # model="gpt-3.5-turbo-instruct",
                 model="text-davinci-003",
@@ -66,6 +65,9 @@ def ChatGptCommitQuery(msg):
 
 
 def ChatGptQuery(msg):
+    config = configparser.ConfigParser()
+    config.read("../LINEBOT_API_KEY/openai_api.ini")
+    key = config.get("openai", "key")
     try:
         # 取出文字的前五個字元，轉換成小寫
         # 將第六個字元之後的訊息發送給 OpenAI
@@ -82,9 +84,7 @@ def ChatGptQuery(msg):
                 # msg = [encoding.decode_single_token_bytes(token) for token in msg_token]
             print(msg)
             # # 設定 OpenAI API 金鑰
-            client = OpenAI(
-                api_key="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"
-            )
+            client = OpenAI(api_key=key)
             response = client.completions.create(
                 # model="gpt-3.5-turbo-instruct",
                 model="text-davinci-003",
@@ -109,4 +109,6 @@ def ChatGptQuery(msg):
 
 
 if __name__ == "__main__":
-    ChatGptCommitQuery()
+    result = ChatGptCommitQuery(
+        "hi ai:'林家炸雞 CHICKEN LIN', '第一次吃到三角骨，帶點肉，啃起來很香酥，蠻驚艷的。雞屁股也很好吃，沒有油膩感，調味適中，不會太鹹。會想再回購的炸雞店。"
+    )

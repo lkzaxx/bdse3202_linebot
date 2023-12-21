@@ -25,33 +25,33 @@ from z50_upload_image_azure_blob import upload_image_to_azure_blob
 from z60_ImagePredictor import ImagePredictor
 from z70_googlemap import get_directions
 
-chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
-japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
-western_food_url = "https://i.imgur.com/xsjOjLF.jpeg"
-what_food_url = "https://i.imgur.com/X0dzHbS.jpg"
-gpt_enabled = False
-
 user_choices = {}
 app = Flask(__name__)
 
-# LINE 聊天機器人的基本資料
+# LINE 聊天機器人的token
 config = configparser.ConfigParser()
-config.read("config.ini")
-
+config.read("../LINEBOT_API_KEY/config.ini")
 line_bot_api = LineBotApi(config.get("line-bot", "channel_access_token"))
 handler = WebhookHandler(config.get("line-bot", "channel_secret"))
+
+# 設定變數
 store_choice_info = []
 store_choice_map = []
 store_choice_commit = []
 store_choice_address = []
 user_id = "none"
 user_choices[user_id] = []
+gpt_enabled = False
+# linebot圖卡圖片
+chinese_food_image_url = "https://i.imgur.com/oWx7pro.jpg"
+japan_food_image_url = "https://i.imgur.com/sIFGvrV.jpg"
+western_food_url = "https://i.imgur.com/xsjOjLF.jpeg"
+what_food_url = "https://i.imgur.com/X0dzHbS.jpg"
 
-# 接收 LINE 的資訊
 
-
+# def
 def generate_google_maps_link(address):
-    # 將地址轉換為 URL 安全的格式
+    # 將googlemap地址轉換為 URL 安全的格式
     encoded_address = urllib.parse.quote(address)
 
     # Google Maps 靜態地圖 API 的基本 URL
@@ -63,6 +63,7 @@ def generate_google_maps_link(address):
     return map_url
 
 
+# 接收 LINE 的資訊
 @app.route("/food", methods=["POST"])
 def callback():
     signature = request.headers["X-Line-Signature"]

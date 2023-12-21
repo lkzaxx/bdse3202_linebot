@@ -1,9 +1,12 @@
+import configparser
 from urllib.parse import quote
 
 import requests
 
 # 設定 Google Maps API 金鑰
-google_maps_api_key = "AIzaSyCSrdOHiyYSPT8XKn2Fmu0b-FTOJFnz-qA"
+config = configparser.ConfigParser()
+config.read("../LINEBOT_API_KEY/googlemap_api.ini")
+google_maps_api_key = config.get("googlemap", "key")
 
 
 def get_address_from_coordinates(latitude, longitude):

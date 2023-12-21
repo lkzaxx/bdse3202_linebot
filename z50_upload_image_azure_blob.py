@@ -1,10 +1,16 @@
+import configparser
 from io import BytesIO
 
 from azure.storage.blob import BlobServiceClient
 
 
 def upload_image_to_azure_blob(image_name, image_content):  # Azure Blob Storage 設定
-    connection_string = "DefaultEndpointsProtocol=https;AccountName=linebotblob;AccountKey=qHaeub7Trc8sj/9VGadrODLMEN4WmjZRv8+HMFZZzoks9b83MacRAnXCjvOd5xtpfYf704yfxXeC+AStMg4AwQ==;EndpointSuffix=core.windows.net"
+    # 讀取API
+    config = configparser.ConfigParser()
+    config.read("../LINEBOT_API_KEY/azure_blob.ini")
+    string = config.get("connection_string", "string")
+
+    connection_string = string
     container_name = "upload-image"
     try:
         blob_service_client = BlobServiceClient.from_connection_string(
