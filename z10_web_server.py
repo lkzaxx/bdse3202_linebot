@@ -188,9 +188,28 @@ def chatgpt_commit(user_input):
         print(f"google評價字數為:{len(result_info)}")
         ask_msg = f"hi ai:店名:{restaurant_name},地址:{restaurant_address},餐點名稱:{food_name},店家評價:{result_info}"
         reply_msg = ChatGptCommitQuery(ask_msg)
-        intro, rating = reply_msg.split("推薦度=")
-        # 去除 "★☆" 符號
-        reply_msg = re.sub("[★☆]", "", intro)
+
+        if "推薦度=" in reply_msg:
+            intro, rating = reply_msg.split("推薦度=")
+            # 去除 "★☆" 符號
+            reply_msg = re.sub("[★☆]", "", intro)
+        else:
+            # 在沒有 "推薦度=" 的情況下再次執行 ChatGptCommitQuery
+            reply_msg = ChatGptCommitQuery(ask_msg)
+            # 可以再次檢查 "推薦度=" 是否存在，然後進行相應的處理
+            if "推薦度=" in reply_msg:
+                intro, rating = reply_msg.split("推薦度=")
+                # 去除 "★☆" 符號
+                reply_msg = re.sub("[★☆]", "", intro)
+            else:
+                # 在沒有 "推薦度=" 的情況下再次執行 ChatGptCommitQuery
+                reply_msg = ChatGptCommitQuery(ask_msg)
+                # 可以再次檢查 "推薦度=" 是否存在，然後進行相應的處理
+                if "推薦度=" in reply_msg:
+                    intro, rating = reply_msg.split("推薦度=")
+                    # 去除 "★☆" 符號
+                    reply_msg = re.sub("[★☆]", "", intro)
+
         contents = {
             "type": "bubble",
             "hero": {

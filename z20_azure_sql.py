@@ -140,7 +140,7 @@ def FoodQueryBuild(food_query_dict):
                 latitude IS NOT NULL AND
                 longitude IS NOT NULL AND
                 GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
-                (type = ({type}) OR ({type}) IS NULL) AND
+                (type = ({type}) OR ({type}) IS NULL OR ({type}) = 'none') AND
                 (price >= {price_lower} OR {price_lower} IS NULL) AND
                 (price <= {price_upper} OR {price_upper} IS NULL) AND
                 (sort = {sort} OR {sort} = 'none') AND
@@ -161,7 +161,7 @@ def FoodQueryBuild(food_query_dict):
                 latitude IS NOT NULL AND
                 longitude IS NOT NULL AND
                 GEOGRAPHY::Point(latitude, longitude, 4326).STDistance(GEOGRAPHY::Point({latitude}, {longitude}, 4326)) <= {distance} AND
-                (type = ({type}) OR ({type}) IS NULL) AND
+                (type = ({type}) OR ({type}) IS NULL OR ({type}) = 'none') AND
                 (price >= {price_lower} OR {price_lower} IS NULL) AND
                 (price <= {price_upper} OR {price_upper} IS NULL) AND
                 (ID IN (SELECT ID FROM google_commit WHERE name IS NOT NULL AND name <> 'none'))
